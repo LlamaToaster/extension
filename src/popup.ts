@@ -3,8 +3,8 @@ import { deviceBudget, deviceInUseMib } from "./fit";
 import { primaryGpu, ramLabel, readHelper, type HelperApp, type HelperGpu, type HelperRam, type HelperResult } from "./helper";
 import { detectGpu, memoryPicture, readCpu, readRam, type MemoryPicture } from "./hardware";
 import { CTX_SLIDER_MAX, ctxFromSlider, ctxLabel, getBandwidth, getGpu, getSettings, setSettings, sliderFromCtx, ticksHtml, type BandwidthResult, type GpuInfo, type MarginMode, type Settings } from "./settings";
-import { gradeSvg } from "../../shared/breadMarks";
-import { fitGradeLegendLabel, fitGrades } from "../../shared/fitGrade";
+import { gradeSvg } from "../shared/breadMarks";
+import { fitGradeLegendLabel, fitGrades } from "../shared/fitGrade";
 import { memoryScale } from "./fit";
 
 const $ = <T extends HTMLElement = HTMLElement>(id: string) => document.getElementById(id) as T;

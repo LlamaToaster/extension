@@ -1,6 +1,6 @@
 # LlamaToaster for Chrome
 
-A Chrome extension that answers "will this GGUF fit my machine?" on Hugging Face model pages. It uses the LlamaToaster web UI's own fit logic and marks.
+A Chrome extension for [LlamaToaster](https://github.com/LlamaToaster/LlamaToaster) that answers "will this GGUF fit my machine?" on Hugging Face model pages. It uses the LlamaToaster web UI's own fit logic and marks.
 
 - **Popup** (or Chrome's side panel: the **Side panel** button docks it there and the toolbar button then opens the panel; **Use popup** undoes it):
   - **Fit check** at the top: **Manual / Auto** lever, context slider, and how much VRAM to keep free: 0.5 / 1 / 1.5 GB, **In use now** (what every app holds on the GPU when a check starts, captured once so the marks don't move afterwards), or a custom amount. The KV cache is sized as f16.
@@ -17,7 +17,7 @@ A Chrome extension that answers "will this GGUF fit my machine?" on Hugging Face
 
 1. It lists the repo's files and matches each chip to its `.gguf`. For a split model, that is shard 1 plus every other part.
 2. It reads only the GGUF header (metadata and tensor list) with HTTP range requests, **2 MB per request**, and stops where the header ends. That is about 6 MB for a typical file and never touches the weights. Headers are cached, so a page you open again shows its marks straight away.
-3. It runs the same code as the app: `shared/gguf.ts` parses the header, `shared/fitSimulate.ts` places the model the way `llama-fit-params` does (output layer and blocks onto the GPU, MoE experts moved to the CPU first), and `shared/fitLevel.ts` picks the mark.
+3. It runs the same code as the app (`shared/` here is a copy of the app's, see [shared/README.md](shared/README.md)): `shared/gguf.ts` parses the header, `shared/fitSimulate.ts` places the model the way `llama-fit-params` does (output layer and blocks onto the GPU, MoE experts moved to the CPU first), and `shared/fitLevel.ts` picks the mark.
 
 ## What a browser can't see
 
@@ -27,7 +27,7 @@ A Chrome extension that answers "will this GGUF fit my machine?" on Hugging Face
 
 ## Measured VRAM through the worker
 
-Chrome reads VRAM internally but gives extensions no way to get it. A LlamaToaster worker on the same machine fills the gap: its installer and updater register `worker/chrome-host/` as a Chrome native-messaging host, and Chrome starts it on demand whenever the extension asks. The worker service doesn't have to be running, and the order doesn't matter (worker first or extension first). A worker installed before this existed picks it up on its next update.
+Chrome reads VRAM internally but gives extensions no way to get it. A LlamaToaster worker on the same machine fills the gap: its installer and updater register [`worker/chrome-host/`](https://github.com/LlamaToaster/LlamaToaster/tree/main/worker/chrome-host) (in the app repo) as a Chrome native-messaging host, and Chrome starts it on demand whenever the extension asks. The worker service doesn't have to be running, and the order doesn't matter (worker first or extension first). A worker installed before this existed picks it up on its next update.
 
 | OS | Source | GPUs |
 |---|---|---|
@@ -40,10 +40,9 @@ The extension has a fixed ID (`odghfahbjacleniojhemnojbiabfebon`, from the `key`
 ## Build and load
 
 ```bash
-cd extension
 npm install        # type definitions only
-npm run build      # -> extension/dist
+npm run build      # -> dist/
 npm run typecheck
 ```
 
-Then open `chrome://extensions`, turn on Developer mode, click **Load unpacked**, and pick `extension/dist`. To pick up a rebuild, click the reload icon on the extension's card.
+Then open `chrome://extensions`, turn on Developer mode, click **Load unpacked**, and pick `dist/`. To pick up a rebuild, click the reload icon on the extension's card.

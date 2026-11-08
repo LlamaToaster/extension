@@ -11,7 +11,7 @@
 // RAM side, API overhead on the GPU side); they are a floor, not the ceiling.
 
 import type { BandwidthResult } from "./settings";
-import { buildReadKernelWasm } from "../../shared/memReadKernel";
+import { buildReadKernelWasm } from "../shared/memReadKernel";
 
 const RAM_MIB = 256;
 const RAM_TRIALS = 6;

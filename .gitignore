@@ -1,0 +1,10 @@
+node_modules/
+# Build output (npm run build)
+dist/
+# Signing key and the package signed with it -- never commit
+dist.pem
+dist.crx
+*.pem
+# Chrome Web Store upload package (npm run package)
+store/build/
+llamatoaster-extension.zip

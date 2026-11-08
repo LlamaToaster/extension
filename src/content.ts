@@ -12,7 +12,7 @@ import { detectGpu, memoryPicture, type MemoryPicture, type RamReading } from ".
 import type { ModelFacts } from "./hfHeader";
 import { CTX_SLIDER_MAX, ctxFromSlider, ctxLabel, getGpu, getSettings, setSettings, sliderFromCtx, ticksHtml, type GpuInfo, type Settings } from "./settings";
 import { mapFiles } from "./fileMap";
-import { gradeSvg } from "../../shared/breadMarks";
+import { gradeSvg } from "../shared/breadMarks";
 
 /** Hugging Face's dark theme puts a "dark" class on <html>. */
 function pageIsDark(): boolean {

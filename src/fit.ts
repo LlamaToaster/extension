@@ -3,11 +3,11 @@
 // three-level rule (shared/fitLevel.ts), and the bread grade drawn from it
 // (shared/fitGrade.ts, shared/breadMarks.ts) -- the Models page's marks.
 
-import { simulateFit, type FitSimPoint } from "../../shared/fitSimulate";
-import { fitLevel, type FitLevel, type FitMemory } from "../../shared/fitLevel";
-import { KV_TYPE_UNITS, type FitPoint } from "../../shared/fitParams";
-import { FIT_MARKS } from "../../client/src/components/modelFit/fitCopy";
-import { ctxShort, fitGrade, fitGradeLabel, type FitGrade, type FitScale } from "../../shared/fitGrade";
+import { simulateFit, type FitSimPoint } from "../shared/fitSimulate";
+import { fitLevel, type FitLevel, type FitMemory } from "../shared/fitLevel";
+import { KV_TYPE_UNITS, type FitPoint } from "../shared/fitParams";
+import { FIT_MARKS } from "../shared/fitLevel";
+import { ctxShort, fitGrade, fitGradeLabel, type FitGrade, type FitScale } from "../shared/fitGrade";
 import type { ModelFacts } from "./hfHeader";
 import type { MemoryPicture } from "./hardware";
 import type { Settings } from "./settings";

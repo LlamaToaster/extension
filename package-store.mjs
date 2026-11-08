@@ -1,7 +1,7 @@
 // Packs the extension for upload to the Chrome Web Store (also accepted by
 // Microsoft Edge Add-ons).
 //
-//   npm run package     ->  extension/store/build/llamatoaster-<version>.zip
+//   npm run package     ->  store/build/llamatoaster-<version>.zip
 //
 // What differs from a plain `dist/` zip, and why:
 //   - manifest.json loses "key": the store assigns the ID itself (the dev key
@@ -123,5 +123,5 @@ const zipPath = join(buildDir, `llamatoaster-${manifest.version}.zip`);
 writeFileSync(zipPath, Buffer.concat([...locals, ...centrals, end]));
 
 const total = [...files.values()].reduce((n, b) => n + b.length, 0);
-console.log(`\n${relative(join(here, ".."), zipPath)}  ${(statSync(zipPath).size / 1024).toFixed(0)} KB zipped, ${(total / 1024).toFixed(0)} KB unpacked, ${order.length} files, v${manifest.version}`);
+console.log(`\n${relative(here, zipPath)}  ${(statSync(zipPath).size / 1024).toFixed(0)} KB zipped, ${(total / 1024).toFixed(0)} KB unpacked, ${order.length} files, v${manifest.version}`);
 for (const n of order) console.log("  " + n);

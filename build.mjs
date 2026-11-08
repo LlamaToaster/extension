@@ -1,12 +1,12 @@
-// Builds the LlamaToaster Chrome extension into extension/dist (load that
+// Builds the LlamaToaster Chrome extension into dist/ (load that
 // folder with chrome://extensions -> "Load unpacked").
 //
-//   node extension/build.mjs          one build
-//   node extension/build.mjs --watch  rebuild on change
+//   npm run build   one build
+//   npm run watch   rebuild on change
 //
-// The fit logic is the app's own: shared/gguf.ts, shared/fitSimulate.ts and
-// shared/fitLevel.ts are bundled straight from the repo, so the extension and
-// the web UI give the same answer for the same header and memory.
+// The fit logic is the app's own: shared/ holds copies of the LlamaToaster app's
+// shared/*.ts (scripts/sync-shared.mjs), so the extension and the web UI give
+// the same answer for the same header and memory.
 
 import * as esbuild from "esbuild";
 import { cpSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
@@ -14,7 +14,6 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const here = dirname(fileURLToPath(import.meta.url));
-const root = join(here, "..");
 const out = join(here, "dist");
 const watch = process.argv.includes("--watch");
 
@@ -29,7 +28,7 @@ for (const s of [16, 32, 48, 128]) cpSync(join(here, "icons", `icon-${s}.png`), 
 cpSync(join(here, "icons", "llama.png"), join(out, "icons", "llama.png"));
 cpSync(join(here, "icons", "wordmark.png"), join(out, "icons", "wordmark.png"));
 
-const fontDir = join(root, "client", "node_modules", "@fontsource");
+const fontDir = join(here, "node_modules", "@fontsource");
 const fonts = {
   "barlow-400.woff2": "barlow/files/barlow-latin-400-normal.woff2",
   "barlow-500.woff2": "barlow/files/barlow-latin-500-normal.woff2",

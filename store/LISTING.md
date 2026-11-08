@@ -2,7 +2,7 @@
 
 Ready-to-paste text for the Developer Dashboard ([chrome.google.com/webstore/devconsole](https://chrome.google.com/webstore/devconsole)). Microsoft Edge Add-ons accepts the same package and text.
 
-Package: `npm run package` (in `extension/`) → `store/build/llamatoaster-<version>.zip`.
+Package: `npm run package` → `store/build/llamatoaster-<version>.zip`.
 Images: `store/media/` (regenerate with `node store/make-media.mjs`).
 
 ---
@@ -52,14 +52,14 @@ Manual: nothing is read until you click the toaster. Auto: every GGUF page is ch
 PRIVATE BY DESIGN
 No account, no analytics, no tracking, no servers of ours. Everything runs in your browser and your settings stay on your device. The extension only runs on huggingface.co.
 
-Open source (MIT): github.com/LlamaToaster/LlamaToaster
+Open source (MIT): github.com/LlamaToaster/extension
 Fit figures are estimates calculated from the model files; for an accurate result and the best performance, test on your own hardware with the LlamaToaster app (llamatoaster.com).
 ```
 
 **Official URL / Homepage URL:** `https://llamatoaster.com` (or the GitHub repository if you prefer)
-**Support URL:** `https://github.com/LlamaToaster/LlamaToaster/issues`
-**Privacy policy URL:** needs a public address. Simplest: push `extension/store/PRIVACY_POLICY.md` to GitHub and use
-`https://github.com/LlamaToaster/LlamaToaster/blob/main/extension/store/PRIVACY_POLICY.md`
+**Support URL:** `https://github.com/LlamaToaster/extension/issues`
+**Privacy policy URL:** needs a public address. Simplest: push `store/PRIVACY_POLICY.md` to GitHub and use
+`https://github.com/LlamaToaster/extension/blob/main/store/PRIVACY_POLICY.md`
 (or publish the same text on llamatoaster.com).
 
 ## 2. Images (Store listing tab)
@@ -105,17 +105,17 @@ Show, on Hugging Face GGUF model pages, whether each quantized model fits the me
 ```
 No login is needed. Install, open https://huggingface.co/unsloth/gemma-3-12b-it-GGUF and click the toaster icon next to "Will it fit?" in the GGUF section (it takes up to about a minute because each of the ~26 files' headers is read). Each quant chip then gets a bread-slice mark; hover or use the toolbar popup to change the context size. Mark "Auto" in the popup to check pages as they open.
 
-The "nativeMessaging" permission is optional: it is used only to reach a local helper that is installed together with the separate LlamaToaster worker program. Without it everything still works and the popup shows VRAM as estimated. The source code is at https://github.com/LlamaToaster/LlamaToaster (folder "extension").
+The "nativeMessaging" permission is optional: it is used only to reach a local helper that is installed together with the separate LlamaToaster worker program. Without it everything still works and the popup shows VRAM as estimated. The source code is at https://github.com/LlamaToaster/extension.
 ```
 
 ## 5. Extension ID: do this on the first upload
 
-The unpacked build has a fixed ID (`odghfahbjacleniojhemnojbiabfebon`, from the `key` in `manifest.json`) and the native-messaging helper only accepts that ID (`worker/chrome-host/register.ps1` and `register.sh`). The store package has **no `key`**, so the store assigns its own ID, and the helper would reject the store build until it knows it.
+The unpacked build has a fixed ID (`odghfahbjacleniojhemnojbiabfebon`, from the `key` in `manifest.json`) and the native-messaging helper only accepts that ID (`worker/chrome-host/register.ps1` and `register.sh` in the app repo). The store package has **no `key`**, so the store assigns its own ID, and the helper would reject the store build until it knows it.
 
 1. Upload the zip (do not publish yet).
 2. Dashboard → **Package** → **View public key**. Copy the text between the BEGIN/END lines into one line.
-3. Put it in `extension/manifest.json` as `"key"` (replacing the current one). From then on the unpacked build and the store build share the store's ID.
-4. Replace `odghfahbjacleniojhemnojbiabfebon` with the store's Item ID in `worker/chrome-host/register.ps1` and `register.sh` (keep the old one in the list too if you still load unpacked builds), then ship that worker update.
+3. Put it in `manifest.json` as `"key"` (replacing the current one). From then on the unpacked build and the store build share the store's ID.
+4. Replace `odghfahbjacleniojhemnojbiabfebon` with the store's Item ID in the app repo's `worker/chrome-host/register.ps1` and `register.sh` (keep the old one in the list too if you still load unpacked builds), then ship that worker update.
 5. Submit for review.
 
 ## 6. Before you submit

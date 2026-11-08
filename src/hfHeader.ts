@@ -8,8 +8,8 @@
 // sizes are summed over all of them. Only header bytes are downloaded, never
 // weights: the read stops at the end of the tensor list.
 
-import { buildTensorLayerBreakdown, parseGgufInfo } from "../../shared/gguf";
-import type { KvLayout, TensorLayerBreakdown } from "../../shared/vramEstimate";
+import { buildTensorLayerBreakdown, parseGgufInfo } from "../shared/gguf";
+import type { KvLayout, TensorLayerBreakdown } from "../shared/vramEstimate";
 
 export const CHUNK_BYTES = 2 * 1024 * 1024;
 // Same ceiling the worker uses (worker/src/headerFit.ts HEADER_MAX_BYTES).

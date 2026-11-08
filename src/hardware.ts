@@ -1,5 +1,5 @@
 import type { HelperGpu } from "./helper";
-import { isFastUnified } from "../../shared/fitGrade";
+import { isFastUnified } from "../shared/fitGrade";
 // What a browser can learn about the machine's memory.
 //
 // RAM: chrome.system.memory gives the real total and available figures.

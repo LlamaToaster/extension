@@ -1,0 +1,58 @@
+name: Sync shared
+
+# shared/ is a copy of the app's fit logic (see shared/README.md). This checks
+# LlamaToaster/LlamaToaster's main once a day and opens (or updates) one PR when
+# the copy is out of date. A PR opened with GITHUB_TOKEN does not start other
+# workflows, so the typecheck and store package build run here, before the PR.
+
+on:
+  schedule:
+    - cron: "17 5 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+
+concurrency:
+  group: sync-shared
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/checkout@v7
+        with:
+          repository: LlamaToaster/LlamaToaster
+          ref: main
+          path: upstream
+          sparse-checkout: shared
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Copy shared/ from the app
+        id: sync
+        run: |
+          node scripts/sync-shared.mjs upstream
+          echo "sha=$(git -C upstream rev-parse --short HEAD)" >> "$GITHUB_OUTPUT"
+          rm -rf upstream
+
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm run package
+
+      - uses: peter-evans/create-pull-request@v7
+        with:
+          branch: sync/shared
+          delete-branch: true
+          commit-message: "Sync shared/ from LlamaToaster@${{ steps.sync.outputs.sha }}"
+          title: "Sync shared/ from LlamaToaster@${{ steps.sync.outputs.sha }}"
+          body: |
+            The app's fit logic changed on [LlamaToaster/LlamaToaster@${{ steps.sync.outputs.sha }}](https://github.com/LlamaToaster/LlamaToaster/commit/${{ steps.sync.outputs.sha }}).
+            This copies it into `shared/` (`scripts/sync-shared.mjs`). The sync run already passed typecheck and the store package build with these files.
+          add-paths: shared
