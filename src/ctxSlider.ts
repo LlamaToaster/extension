@@ -1,6 +1,5 @@
 // The context slider's scale and tick labels. Pure arithmetic with no chrome.*
-// access, so the repo-level tests (shared/ctxSlider.test.ts) can import it
-// without the extension's Chrome types.
+// access, so its tests (ctxSlider.test.ts) run under plain vitest.
 
 /** Labelled anchor points (tokens); the slider itself is continuous between them. */
 export const CTX_STOPS = [1024, 2048, 4096, 8192, 16384, 32768, 65536, 131072, 262144, 524288, 1048576, 10485760];

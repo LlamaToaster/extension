@@ -44,6 +44,7 @@ jobs:
 
       - run: npm ci
       - run: npm run typecheck
+      - run: npm test
       - run: npm run package
 
       - uses: peter-evans/create-pull-request@v7
