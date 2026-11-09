@@ -24,7 +24,7 @@ Will this local AI model run on your PC? See how many layers fit in VRAM and wha
 ```
 Will this local AI model actually run on your computer? Find out on the model page, before you download a single gigabyte.
 
-THE PROBLEM
+■ THE PROBLEM
 Running AI locally means picking from an enormous catalogue: hundreds of thousands of model repositories for llama.cpp, the most popular engine for local inference, and almost 4 million GGUF files on Hugging Face. There are plenty of benchmarks that tell you how good a model is. Nobody can tell you for sure whether it will work on YOUR system.
 
 And one model is rarely one file. It comes in anywhere from a few to about twenty quantizations. If you already know which model you want, choosing the exact quant is a puzzle of its own, and what you really want is the most bits that still run well on your hardware.
@@ -36,7 +36,7 @@ Everyone knows the rule: put as many layers as possible into video memory. But:
 
 The usual way to find out is to download several models, load them in your favourite local-AI app, tweak settings blindly on a chatbot's advice, and wait for either an out-of-memory crash or, worse, a silent slowdown when part of the model quietly spills from VRAM into RAM, which nobody warns you about.
 
-WHAT LLAMATOASTER DOES
+■ WHAT LLAMATOASTER DOES
 You don't download the model and you don't run it. LlamaToaster reads just a few megabytes of each quant, instead of tens or even hundreds of gigabytes.
 
 Open a model page on Hugging Face and click the toaster. Every quantization gets a mark that tells you, before downloading:
@@ -54,25 +54,25 @@ The marks, from best to worst:
 
 Hover a mark for the figures: VRAM and RAM needed, layers on the GPU, KV cache, file size.
 
-HOW IT WORKS
+■ HOW IT WORKS
 LlamaToaster reads only the model's own header (a few megabytes per quant, with small HTTP range requests; never the model itself) and places it on your GPU and RAM the way llama.cpp's own fit logic does, including the KV cache for your chosen context and MoE layouts. It covers the architectures llama.cpp supports and works with Windows, macOS and Linux machines.
 
-HOW ACCURATE IS IT
+■ HOW ACCURATE IS IT
 Memory estimates are typically within about 10% of what llama.cpp actually uses; a few models are further off. For a precise answer and real speed measurements on your own hardware, use LlamaToaster itself (llamatoaster.com).
 
-THIS MACHINE
+■ THIS MACHINE
 The popup shows your CPU, RAM (with type and speed when known) and GPU. Choose how much memory to keep free, or use what your apps hold right now. Override the VRAM size or the memory type (dedicated, unified, CPU only) if the detection is wrong.
 
-MEMORY SPEED
+■ MEMORY SPEED
 Push the lever to measure RAM and GPU memory bandwidth. Memory bandwidth, more than compute, decides how fast a local model generates text.
 
-MEASURED VRAM (OPTIONAL)
+■ MEASURED VRAM (OPTIONAL)
 Browsers cannot report free VRAM. If you install a LlamaToaster worker on the same computer, the extension reads the real figure through a local helper (AMD, Intel, NVIDIA and Apple silicon). Without it, VRAM comes from a table of known cards and your own "used by other apps" setting, and the popup says so.
 
-MANUAL OR AUTO
+■ MANUAL OR AUTO
 Manual: nothing is read until you click the toaster. Auto: every model page is checked as it opens. You can dock the popup as a side panel.
 
-PRIVATE BY DESIGN
+■ PRIVATE BY DESIGN
 No account, no analytics, no tracking, no servers of ours. Everything runs in your browser and your settings stay on your device. The extension only runs on huggingface.co.
 
 Open source (MIT): github.com/LlamaToaster/extension
