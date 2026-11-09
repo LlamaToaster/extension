@@ -25,7 +25,7 @@ Will this local AI model run on your PC? See how many layers fit in VRAM and wha
 Will this local AI model actually run on your computer? Find out on the model page, before you download a single gigabyte.
 
 ▶ THE PROBLEM
-Running AI locally means picking from an enormous catalogue: hundreds of thousands of model repositories for llama.cpp, the most popular engine for local inference, and almost 4 million GGUF files on Hugging Face. There are plenty of benchmarks that tell you how good a model is. Nobody can tell you for sure whether it will work on YOUR system.
+Running AI locally means picking from an enormous catalog: hundreds of thousands of model repositories for llama.cpp, the most popular engine for local inference, and almost 4 million GGUF files on Hugging Face. There are plenty of benchmarks that tell you how good a model is. Nobody can tell you for sure whether it will work on YOUR system.
 
 And one model is rarely one file. It comes in anywhere from a few to about twenty quantizations. If you already know which model you want, choosing the exact quant is a puzzle of its own, and what you really want is the most bits that still run well on your hardware.
 
@@ -34,7 +34,7 @@ Everyone knows the rule: put as many layers as possible into video memory. But:
 • How many layers fit in YOUR VRAM, and how many have to go to slow system RAM? What about the experts in mixture-of-experts models?
 • The longer the context, the more memory it needs. How much context can you afford?
 
-The usual way to find out is to download several models, load them in your favourite local-AI app, tweak settings blindly on a chatbot's advice, and wait for either an out-of-memory crash or, worse, a silent slowdown when part of the model quietly spills from VRAM into RAM, which nobody warns you about.
+The usual way to find out is to download several models, load them in your favorite local-AI app, tweak settings blindly on a chatbot's advice, and wait for either an out-of-memory crash or, worse, a silent slowdown when part of the model quietly spills from VRAM into RAM, which nobody warns you about.
 
 ▶ WHAT LLAMATOASTER DOES
 You don't download the model and you don't run it. LlamaToaster reads just a few megabytes of each quant, instead of tens or even hundreds of gigabytes.
