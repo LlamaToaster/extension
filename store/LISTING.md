@@ -11,49 +11,69 @@ Images: `store/media/` (regenerate with `node store/make-media.mjs`).
 
 **Name** (from the manifest; keep as is): `LlamaToaster`
 
-**Summary** (taken from the manifest `description`; limit 132 characters, this one is 127):
+**Summary** (taken from the manifest `description`; limit 132 characters, this one is 126):
 
 ```
-Will this GGUF fit your machine? Reads your RAM/VRAM, measures memory speed, and marks every quant on Hugging Face model pages.
+Will this local AI model run on your PC? See how many layers fit in VRAM and what context you can afford, before you download.
 ```
 
-**Category:** Developer Tools  **Language:** English
+**Category:** Productivity → Tools (a general-audience category; Developer Tools undersells it). If the dashboard lists categories differently, pick "Tools".  **Language:** English
 
 **Detailed description:**
 
 ```
-Will this GGUF fit your machine? LlamaToaster answers that on the Hugging Face model page itself, before you download anything.
+Will this local AI model actually run on your computer? Find out on the model page, before you download a single gigabyte.
 
-Open any GGUF model on huggingface.co and click the toaster next to "Will it fit?". Every quant chip gets a mark:
+THE PROBLEM
+Running AI locally means picking from an enormous catalogue: hundreds of thousands of model repositories for llama.cpp, the most popular engine for local inference, and almost 4 million GGUF files on Hugging Face. There are plenty of benchmarks that tell you how good a model is. Nobody can tell you for sure whether it will work on YOUR system.
 
-• All layers on the GPU, at your context size
+And one model is rarely one file. It comes in anywhere from a few to about twenty quantizations. If you already know which model you want, choosing the exact quant is a puzzle of its own, and what you really want is the most bits that still run well on your hardware.
+
+Everyone knows the rule: put as many layers as possible into video memory. But:
+• What if the VRAM can't hold all the layers?
+• How many layers fit in YOUR VRAM, and how many have to go to slow system RAM? What about the experts in mixture-of-experts models?
+• The longer the context, the more memory it needs. How much context can you afford?
+
+The usual way to find out is to download several models, load them in your favourite local-AI app, tweak settings blindly on a chatbot's advice, and wait for either an out-of-memory crash or, worse, a silent slowdown when part of the model quietly spills from VRAM into RAM, which nobody warns you about.
+
+WHAT LLAMATOASTER DOES
+Open a model page on Hugging Face and click the toaster. Every quantization gets a mark that tells you, before downloading:
+• Whether it fits at all
+• How many layers go on your GPU and how much goes to RAM, including the experts of MoE models
+• Whether it still fits at the context length you choose: move the slider and every mark updates at once
+
+The marks, from best to worst:
+• All layers on the GPU, at the model's maximum context
+• All layers on the GPU, at your context
 • All layers on the GPU, with the MoE experts in RAM
 • Partial offload: half or more of the layers on the GPU
 • Partial offload: under half of the layers on the GPU
 • Not enough memory
 
-Hover a mark for the figures. Move the context slider in the popup and every chip updates at once.
+Hover a mark for the figures: VRAM and RAM needed, layers on the GPU, KV cache, file size.
 
 HOW IT WORKS
-LlamaToaster reads only the GGUF header of each file (the metadata and tensor list, about 6 MB per file, using small HTTP range requests; never the weights). It then places the model on your GPU and RAM the way llama.cpp's own fit logic does, including the KV cache for your chosen context length and mixture-of-experts layouts. It uses the same fit code as the LlamaToaster web app, so the extension and the app give the same answer.
+LlamaToaster reads only the model's own header (about 6 MB per file, with small HTTP range requests; never the model itself) and places it on your GPU and RAM the way llama.cpp's own fit logic does, including the KV cache for your chosen context and MoE layouts. It covers the architectures llama.cpp supports and works with Windows, macOS and Linux machines.
+
+HOW ACCURATE IS IT
+Memory estimates are typically within about 10% of what llama.cpp actually uses; a few models are further off. For a precise answer and real speed measurements on your own hardware, use LlamaToaster itself (llamatoaster.com).
 
 THIS MACHINE
 The popup shows your CPU, RAM (with type and speed when known) and GPU. Choose how much memory to keep free, or use what your apps hold right now. Override the VRAM size or the memory type (dedicated, unified, CPU only) if the detection is wrong.
 
 MEMORY SPEED
-Push the lever to measure RAM read/write/copy bandwidth by thread count and GPU memory bandwidth through WebGPU. Memory bandwidth, not compute, is what mostly decides tokens per second.
+Push the lever to measure RAM and GPU memory bandwidth. Memory bandwidth, more than compute, decides how fast a local model generates text.
 
 MEASURED VRAM (OPTIONAL)
-Browsers cannot report free VRAM. If you install a LlamaToaster worker on the same computer, the extension can read the real figure through a local helper (Windows, Linux and macOS; AMD, Intel, NVIDIA and Apple silicon). Without it, VRAM comes from a table of known cards and your own "other apps use" setting, and the popup says so.
+Browsers cannot report free VRAM. If you install a LlamaToaster worker on the same computer, the extension reads the real figure through a local helper (AMD, Intel, NVIDIA and Apple silicon). Without it, VRAM comes from a table of known cards and your own "used by other apps" setting, and the popup says so.
 
 MANUAL OR AUTO
-Manual: nothing is read until you click the toaster. Auto: every GGUF page is checked as it opens. You can dock the popup as a side panel.
+Manual: nothing is read until you click the toaster. Auto: every model page is checked as it opens. You can dock the popup as a side panel.
 
 PRIVATE BY DESIGN
 No account, no analytics, no tracking, no servers of ours. Everything runs in your browser and your settings stay on your device. The extension only runs on huggingface.co.
 
 Open source (MIT): github.com/LlamaToaster/extension
-Fit figures are estimates calculated from the model files; for an accurate result and the best performance, test on your own hardware with the LlamaToaster app (llamatoaster.com).
 ```
 
 **Official URL / Homepage URL:** `https://llamatoaster.com` (or the GitHub repository if you prefer)
@@ -120,7 +140,7 @@ The unpacked build has a fixed ID (`odghfahbjacleniojhemnojbiabfebon`, from the 
 
 ## 6. Before you submit
 
-- [x] Summary (manifest `description`) is 127 characters, under the 132 limit.
+- [x] Summary (manifest `description`) is 126 characters, under the 132 limit.
 - [ ] Bump `version` for every later upload (the store rejects a repeat).
 - [ ] Host the privacy policy at a public URL and paste it.
 - [ ] Register the developer account ($5 one-time, 2-Step Verification on).

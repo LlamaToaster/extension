@@ -1,6 +1,6 @@
 # LlamaToaster for Chrome
 
-A browser extension for [LlamaToaster](https://github.com/LlamaToaster/LlamaToaster) that answers **"will this GGUF fit my machine?"** on Hugging Face model pages, before you download anything. It uses the LlamaToaster web app's own fit logic and marks, so the extension and the Models page give the same answer for the same file.
+A browser extension for [LlamaToaster](https://github.com/LlamaToaster/LlamaToaster) that answers **"will this local model run on my machine?"** on Hugging Face model pages, before you download anything: how many layers fit in VRAM, what goes to RAM, and what context you can afford. It uses the LlamaToaster web app's own fit logic and marks, so the extension and the Models page give the same answer for the same file.
 
 ![The marks on a Hugging Face model page](store/media/screenshot-1-hf-page.png)
 
