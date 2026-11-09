@@ -37,7 +37,7 @@ Everyone knows the rule: put as many layers as possible into video memory. But:
 The usual way to find out is to download several models, load them in your favourite local-AI app, tweak settings blindly on a chatbot's advice, and wait for either an out-of-memory crash or, worse, a silent slowdown when part of the model quietly spills from VRAM into RAM, which nobody warns you about.
 
 WHAT LLAMATOASTER DOES
-You don't download the model and you don't run it. LlamaToaster reads just a few megabytes of each file, instead of tens or even hundreds of gigabytes.
+You don't download the model and you don't run it. LlamaToaster reads just a few megabytes of each quant, instead of tens or even hundreds of gigabytes.
 
 Open a model page on Hugging Face and click the toaster. Every quantization gets a mark that tells you, before downloading:
 • Whether it fits at all
@@ -55,7 +55,7 @@ The marks, from best to worst:
 Hover a mark for the figures: VRAM and RAM needed, layers on the GPU, KV cache, file size.
 
 HOW IT WORKS
-LlamaToaster reads only the model's own header (a few megabytes per file, with small HTTP range requests; never the model itself) and places it on your GPU and RAM the way llama.cpp's own fit logic does, including the KV cache for your chosen context and MoE layouts. It covers the architectures llama.cpp supports and works with Windows, macOS and Linux machines.
+LlamaToaster reads only the model's own header (a few megabytes per quant, with small HTTP range requests; never the model itself) and places it on your GPU and RAM the way llama.cpp's own fit logic does, including the KV cache for your chosen context and MoE layouts. It covers the architectures llama.cpp supports and works with Windows, macOS and Linux machines.
 
 HOW ACCURATE IS IT
 Memory estimates are typically within about 10% of what llama.cpp actually uses; a few models are further off. For a precise answer and real speed measurements on your own hardware, use LlamaToaster itself (llamatoaster.com).
