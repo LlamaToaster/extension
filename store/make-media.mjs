@@ -44,7 +44,7 @@ const brand = brandL.replace(' style="left:60px;right:auto"', "");
 
 const jobs = {
   "screenshot-1-hf-page": [1280, 800, page(`
-    <div style="position:absolute;left:60px;top:38px;right:60px"><h1>Will this GGUF fit <b>your machine?</b></h1><p class="sub">Every quant on a Hugging Face model page, marked before you download it.</p></div>
+    <div style="position:absolute;left:60px;top:38px;right:60px"><h1>Will this local model run <b>on your machine?</b></h1><p class="sub">See how much fits in VRAM and what context you can afford, before you download.</p></div>
     <div class="shot" style="left:90px;top:168px;width:1100px;height:606px"><img src="${src("hf-page.jpg")}" style="width:1100px"></div>`)],
   "screenshot-2-marks": [1280, 800, page(`
     <div style="position:absolute;left:60px;top:38px;right:60px"><h1>Every quant, <b>marked at a glance</b></h1></div>
@@ -61,20 +61,20 @@ const jobs = {
   "screenshot-4-speed": [1280, 800, page(`
     <div style="position:absolute;left:60px;top:110px;width:600px"><span class="tag">Memory speed</span><h1>Push the lever, <b>measure your memory</b></h1>
       <p class="sub" style="margin-top:22px">RAM read, write and copy by thread count, and GPU memory bandwidth through WebGPU. It is what decides tokens per second.</p></div>
-    <div class="shot" style="left:720px;top:110px;width:520px;height:571px"><img src="${src("popup-memory-speed.png")}" style="width:520px;margin-top:-800px"></div>${brandL}`)],
+    <div class="shot" style="left:720px;top:60px;width:520px;height:682px"><img src="${src("popup-memory-speed.png")}" style="width:520px;margin-top:-237px"></div>${brandL}`)],
   "screenshot-5-privacy": [1280, 800, page(`
     <div style="position:absolute;left:90px;top:110px;right:90px"><span class="tag">Private by design</span><h1>Runs in your browser. <b>Nothing is sent to us.</b></h1>
       <ul style="margin-top:44px;width:900px">
-        <li><span>Reads only the <b>GGUF header</b> with small range requests, about 6 MB per file, never the weights</span></li>
+        <li><span>Reads only the <b>model header</b>, a few megabytes per quant, never the model itself</span></li>
         <li><span>Hardware figures and settings <b>stay on your device</b></span></li>
         <li><span><b>No account, no analytics, no tracking</b></span></li>
         <li><span>Works only on <b>huggingface.co</b></span></li></ul></div>${brand}`)],
   "promo-small-440x280": [440, 280, page(`
     <div style="position:absolute;left:26px;top:30px;right:26px;display:flex;align-items:center;gap:16px"><img src="${icons}/llama.png" style="width:84px;height:84px"><img src="${icons}/wordmark.png" style="height:40px"></div>
-    <div style="position:absolute;left:26px;right:26px;top:140px"><h1 style="font-size:36px">Will this GGUF <b>fit?</b></h1><p class="sub" style="font-size:17px;margin-top:8px">Fit marks on every Hugging Face quant.</p></div>`)],
+    <div style="position:absolute;left:26px;right:26px;top:140px"><h1 style="font-size:36px">Will this local model <b>run?</b></h1><p class="sub" style="font-size:17px;margin-top:8px">Fit marks on every Hugging Face quant.</p></div>`)],
   "promo-marquee-1400x560": [1400, 560, page(`
     <div style="position:absolute;left:70px;top:70px;width:640px"><div style="display:flex;align-items:center;gap:20px"><img src="${icons}/llama.png" style="width:110px;height:110px"><img src="${icons}/wordmark.png" style="height:52px"></div>
-      <h1 style="font-size:64px;margin-top:40px">Will this GGUF <b>fit your machine?</b></h1><p class="sub">See which quants fit, right on Hugging Face.</p></div>
+      <h1 style="font-size:64px;margin-top:40px">Will this local model <b>run on your machine?</b></h1><p class="sub">See which quants fit, right on Hugging Face.</p></div>
     <div class="shot" style="left:790px;top:60px;width:540px"><img src="${src("hf-gguf-panel.png")}" style="width:540px"></div>`)],
 };
 
