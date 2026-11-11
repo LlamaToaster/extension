@@ -1,0 +1,92 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>LlamaToaster: will it fit?</title>
+  <meta name="description" content="Will this local AI model run on your PC? Paste a Hugging Face GGUF repository and see how many layers fit in VRAM and what context you can afford, before you download.">
+  <link rel="icon" href="icons/icon-32.png">
+  <link rel="stylesheet" href="app.css">
+</head>
+<body>
+  <header>
+    <img src="icons/llama.png" alt="" width="40" height="40">
+    <div>
+      <h1>LlamaToaster</h1>
+      <div class="muted">Will this local model run on your machine?</div>
+    </div>
+    <a class="gh" href="https://github.com/LlamaToaster/extension" target="_blank" rel="noopener">Chrome extension</a>
+  </header>
+
+  <main>
+    <section>
+      <h2>Model</h2>
+      <div class="inline">
+        <input id="repo" type="text" placeholder="owner/name or a huggingface.co link" autocomplete="off" spellcheck="false" aria-label="Hugging Face repository">
+        <button id="check" class="primary">Toast it</button>
+      </div>
+      <div class="small muted examples">
+        Try:
+        <button class="link" data-example="unsloth/gemma-3-1b-it-GGUF">gemma-3-1b-it</button>
+        <button class="link" data-example="unsloth/Qwen3-30B-A3B-GGUF">Qwen3-30B-A3B (MoE)</button>
+      </div>
+      <p id="error" class="error" role="alert" hidden></p>
+    </section>
+
+    <section>
+      <h2>This machine</h2>
+      <p class="small muted">A web page can't read your hardware, so type it in. The GPU name is filled in from your browser when it reports one.</p>
+      <div class="grid">
+        <label>GPU name
+          <input id="gpu" type="text" placeholder="e.g. NVIDIA GeForce RTX 4070" autocomplete="off" spellcheck="false">
+        </label>
+        <label>Memory type
+          <select id="memType">
+            <option value="auto">Auto (from the GPU name)</option>
+            <option value="vram">Dedicated VRAM</option>
+            <option value="unified">Unified (shared with RAM)</option>
+            <option value="cpu">CPU only</option>
+          </select>
+        </label>
+        <label>VRAM, GB <span class="muted">(empty: from the GPU table)</span>
+          <input id="vram" type="number" min="0" step="0.5" inputmode="decimal" placeholder="auto">
+        </label>
+        <label>RAM, GB
+          <input id="ram" type="number" min="1" step="1" inputmode="decimal">
+        </label>
+        <label>Keep free in VRAM, GB
+          <input id="keepVram" type="number" min="0" step="0.1" inputmode="decimal">
+        </label>
+        <label>Keep free in RAM, GB
+          <input id="keepRam" type="number" min="0" step="0.1" inputmode="decimal">
+        </label>
+      </div>
+      <div class="small muted" id="detected"></div>
+      <div class="small" id="machineNote"></div>
+    </section>
+
+    <section>
+      <h2>Context <span id="ctxValue" class="mono"></span></h2>
+      <input id="ctx" type="range" min="0" step="1" aria-label="Context length">
+      <div id="ticks" class="ticks small muted" aria-hidden="true"></div>
+      <div class="small muted" id="modelNote"></div>
+    </section>
+
+    <section id="results" hidden>
+      <h2>Quants <span id="progress" class="muted small"></span></h2>
+      <div id="quants"></div>
+      <h2 class="legend-h">What the marks mean</h2>
+      <div id="legend" class="legend small"></div>
+    </section>
+
+    <footer class="small muted">
+      Estimates, not guarantees: only each file's header is read (about 6 MB per quant, never the weights), the KV cache is sized as f16,
+      and the placement is the app's own stand-in for <span class="mono">llama-fit-params</span>. Everything runs in your browser and nothing is sent to us.
+      Source: <a href="https://github.com/LlamaToaster/LlamaToaster" target="_blank" rel="noopener">LlamaToaster</a> ·
+      <a href="https://github.com/LlamaToaster/extension" target="_blank" rel="noopener">extension</a>.
+    </footer>
+  </main>
+
+  <script type="module" src="app.js"></script>
+</body>
+</html>
