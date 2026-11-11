@@ -13,7 +13,6 @@ LlamaToaster ("the extension") tells you whether a GGUF model on a Hugging Face 
 | RAM size and free RAM, CPU model and thread count | Chrome's `system.memory` and `system.cpu` APIs | To compare against the model's size | Stays in your browser |
 | GPU name | The browser's WebGL/WebGPU interface | To look up the GPU's VRAM size | Stays in your browser |
 | VRAM size and usage, installed RAM type and speed, and the names of apps using GPU memory | **Optional.** The LlamaToaster worker's local "native messaging" helper, only if you installed the worker on this computer | To measure free VRAM instead of estimating it | Shown in the popup only; never stored beyond the RAM type and speed, never transmitted |
-| Memory speed (RAM and GPU bandwidth) | A benchmark you start yourself in the popup, run in your browser | To show how fast your memory is | Stays in your browser |
 | Your settings (mode, context size, amounts of memory to keep free, overrides) | You | To remember your choices | Stored locally in `chrome.storage` |
 
 Requests to `huggingface.co` are sent with your browser's existing Hugging Face cookies, exactly as if you had opened the page yourself. This lets the extension read the files of gated or private repositories you already have access to. The extension does not read, store or forward those cookies.

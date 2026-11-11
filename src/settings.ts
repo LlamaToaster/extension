@@ -16,14 +16,6 @@ export interface GpuInfo {
   detectedAt: number;
 }
 
-export interface BandwidthResult {
-  measuredAt: number;
-  /** How READ was measured: "wasm-simd" (memory-bound) or "js" (a lower bound: the loop, not the memory, is the limit). Absent on results saved by older versions, which were all "js". */
-  ram: { logicalCores: number; readKernel?: "wasm-simd" | "js"; points: { threads: number; readGBs: number; writeGBs: number; copyGBs: number }[] };
-  vram: { deviceName: string; bufferMib: number; readGBs: number; writeGBs: number; copyGBs: number } | null;
-  vramUnavailableReason?: string;
-}
-
 /** How much memory the fit keeps free: a fixed amount (any value, set on the
  * popup's lever), or what is in use when the check starts (captured once, so
  * the marks don't move as usage moves). "custom" is an older saved value: it
@@ -115,7 +107,3 @@ export async function getGpu(): Promise<GpuInfo | null> {
   return (gpu as GpuInfo | undefined) ?? null;
 }
 
-export async function getBandwidth(): Promise<BandwidthResult | null> {
-  const { bandwidth } = await chrome.storage.local.get("bandwidth");
-  return (bandwidth as BandwidthResult | undefined) ?? null;
-}

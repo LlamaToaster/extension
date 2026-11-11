@@ -45,7 +45,6 @@ Click the toolbar button. The **Side panel** button docks the same page in Chrom
   - **VRAM available** (free of total) and a bar for RAM and for VRAM. With a worker, the bar splits into the apps holding the memory.
   - **Keep free**: a lever under each bar sets how much memory the model must leave alone. Any amount from 0 to everything usable, in 0.1 GB steps, with a pull onto the presets (RAM 0 / 2 / 4 / 6 / 8 GB, VRAM 0 / 0.5 / 1 / 1.5 / 2 GB), every whole GB, and **in use now**: what all apps hold when a check starts, captured once so the marks don't move afterwards.
   - Without a worker the browser cannot see what other apps use, so a **Used by other apps** field (0.5 GB by default) stands in.
-- **Memory speed** (folded; the header shows the best figures): push the toaster lever to measure RAM read, write and copy by thread count and GPU memory read, write and copy through WebGPU. The best figures are highlighted.
 - **What the marks mean**: the legend.
 
 ![The popup, "This machine" panel](store/media/screenshot-3-machine.png)
@@ -62,9 +61,6 @@ The KV cache is sized as **f16**, and the context is capped at the model's own m
 
 - **Free VRAM.** No browser API reports VRAM (unless a worker is installed, see below). The total comes from a table of known cards (override it in the popup; a GPU not in the table asks for the size). "Available" is that total minus the amount you say other apps use.
 - **Unified memory** is detected from the GPU name: Apple, Intel iGPU, Radeon integrated graphics. Apple silicon gets about 3/4 of RAM, like Metal's working-set budget. Override the memory type in the popup.
-- **Memory speed** reads a little below native tools: RAM Read is a WebAssembly SIMD kernel (a JavaScript sum loop is bound by the engine, not by memory), Write/Copy are the browser's native `fill`/`set`, VRAM is WebGPU kernels. The manifest allows `'wasm-unsafe-eval'` for that kernel; without it Read falls back to a JavaScript loop and the popup says so.
-
-![Memory speed](store/media/screenshot-4-speed.png)
 
 ## Measured VRAM through the worker
 
