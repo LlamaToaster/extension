@@ -1,8 +1,7 @@
-import { measureBandwidth, type MeasurePhase } from "./bandwidth";
 import { deviceBudget, deviceInUseMib } from "./fit";
 import { primaryGpu, ramLabel, readHelper, type HelperApp, type HelperGpu, type HelperRam, type HelperResult } from "./helper";
 import { detectGpu, memoryPicture, readCpu, readRam, type MemoryPicture } from "./hardware";
-import { CTX_SLIDER_MAX, ctxFromSlider, ctxLabel, getBandwidth, getGpu, getSettings, setSettings, sliderFromCtx, ticksHtml, type BandwidthResult, type GpuInfo, type MarginMode, type Settings } from "./settings";
+import { CTX_SLIDER_MAX, ctxFromSlider, ctxLabel, getGpu, getSettings, setSettings, sliderFromCtx, ticksHtml, type GpuInfo, type MarginMode, type Settings } from "./settings";
 import { gradeSvg } from "../shared/breadMarks";
 import { fitGradeLegendLabel, fitGrades } from "../shared/fitGrade";
 import { memoryScale } from "./fit";
@@ -334,54 +333,10 @@ function setFill(slider: HTMLInputElement) {
   slider.style.setProperty("--frac", String(Number(slider.value) / Number(slider.max || CTX_SLIDER_MAX)));
 }
 
-/** Memory speed folds away; when folded its header shows the best figures. */
-function setSpeedOpen(open: boolean) {
-  $("speedHead").setAttribute("aria-expanded", String(open));
-  $("speedBody").hidden = !open;
-}
-
-function speedSummary(b: BandwidthResult | null) {
-  const sum = $("speedSum");
-  if (!b) {
-    sum.textContent = "not measured";
-    return;
-  }
-  const ram = Math.max(...b.ram.points.map((p) => p.readGBs));
-  sum.textContent = `RAM ${ram.toFixed(0)} GB/s${b.vram ? ` · VRAM ${b.vram.readGBs.toFixed(0)} GB/s` : ""}`;
-}
-
 function renderDock() {
   const b = $("dock");
   b.textContent = inPanel ? "Hide sidebar" : "Side panel";
   b.title = inPanel ? "Close the side panel; the toolbar button opens LlamaToaster as a popup again" : "Open in Chrome's side panel: it stays open next to the page instead of covering it";
-}
-
-function renderSpeed(b: BandwidthResult | null) {
-  speedSummary(b);
-  const out = $("speedOut");
-  if (!b) {
-    out.innerHTML = `<div class="note">How fast this machine moves bytes: the ceiling for token generation, which reads every active weight once per token.</div>`;
-    return;
-  }
-  const pts = b.ram.points;
-  const best = (k: "readGBs" | "writeGBs" | "copyGBs") => pts.reduce((bi, p, i) => (p[k] > pts[bi][k] ? i : bi), 0);
-  const [br, bw, bc] = [best("readGBs"), best("writeGBs"), best("copyGBs")];
-  const f = (n: number) => `${n.toFixed(1)} GB/s`;
-  let html = `<table><thead><tr><th>RAM threads</th><th>Read</th><th>Write</th><th>Copy</th></tr></thead><tbody>`;
-  pts.forEach((p, i) => {
-    html += `<tr><td>${p.threads}</td><td class="${i === br ? "best" : ""}">${f(p.readGBs)}</td><td class="${i === bw ? "best" : ""}">${f(p.writeGBs)}</td><td class="${i === bc ? "best" : ""}">${f(p.copyGBs)}</td></tr>`;
-  });
-  html += `</tbody></table>`;
-  if (b.vram) {
-    html += `<table><thead><tr><th>VRAM</th><th>Read</th><th>Write</th><th>Copy</th></tr></thead><tbody><tr><td>GPU</td><td class="best">${f(b.vram.readGBs)}</td><td>${f(b.vram.writeGBs)}</td><td>${f(b.vram.copyGBs)}</td></tr></tbody></table>`;
-  } else if (b.vramUnavailableReason) {
-    html += `<div class="note">VRAM: ${escapeHtml(b.vramUnavailableReason)}</div>`;
-  }
-  html += `<div class="note">Measured ${new Date(b.measuredAt).toLocaleString()} in the browser: browser overhead puts these a little under native tools.</div>`;
-  if (b.ram.readKernel !== "wasm-simd") {
-    html += `<div class="note">RAM Read here was a JavaScript loop, which is limited by the loop rather than by memory and reads far too low. Run the measurement again with the current version for a real figure.</div>`;
-  }
-  out.innerHTML = html;
 }
 
 function escapeHtml(s: string) {
@@ -481,18 +436,12 @@ async function main() {
     opening.then(() => window.close()).catch((err) => console.warn("LlamaToaster: could not open the side panel", err));
   });
 
-  // Memory speed is folded by default, the marks legend open; both are remembered.
-  const ui = ((await chrome.storage.local.get("ui")).ui ?? {}) as { speedOpen?: boolean; legendOpen?: boolean };
+  // The marks legend starts open; its state is remembered.
+  const ui = ((await chrome.storage.local.get("ui")).ui ?? {}) as { legendOpen?: boolean };
   const saveUi = (patch: typeof ui) => {
     Object.assign(ui, patch);
     void chrome.storage.local.set({ ui: { ...ui } });
   };
-  setSpeedOpen(!!ui.speedOpen);
-  $("speedHead").addEventListener("click", () => {
-    const open = $("speedHead").getAttribute("aria-expanded") !== "true";
-    setSpeedOpen(open);
-    saveUi({ speedOpen: open });
-  });
   const setLegendOpen = (open: boolean) => {
     $("legendHead").setAttribute("aria-expanded", String(open));
     $("fitLegend").hidden = !open;
@@ -502,72 +451,6 @@ async function main() {
     const open = $("legendHead").getAttribute("aria-expanded") !== "true";
     setLegendOpen(open);
     saveUi({ legendOpen: open });
-  });
-
-  // The lever goes down and stays down while measuring, then pops back up.
-  let measuring = false;
-  $("measure").addEventListener("click", async () => {
-    if (measuring) return;
-    measuring = true;
-    const btn = $<HTMLButtonElement>("measure");
-    btn.classList.add("down");
-    btn.setAttribute("aria-busy", "true");
-    const label = $("measureLabel");
-    label.textContent = "Measuring…";
-    const status = $("speedStatus");
-    status.textContent = "";
-    $("speedSum").textContent = "measuring…";
-    // The last figures stay in their table, faded, until the new ones replace them.
-    $("speedOut").classList.add("measuring");
-    // RAM and VRAM each count 0..100%. A counter eases between trial reports:
-    // after each one it keeps creeping forward at the pace the last trial took,
-    // never past the next report.
-    const meter = () => ({ reported: 0, trialShare: 0, lastAt: performance.now(), pace: 0, shown: 0 });
-    const meters: Record<MeasurePhase, ReturnType<typeof meter>> = { ram: meter(), vram: meter() };
-    let phase: MeasurePhase = "ram";
-    const pct = (m: ReturnType<typeof meter>, live: boolean) => {
-      const creep = live && m.pace > 0 ? Math.min(0.95, (performance.now() - m.lastAt) / m.pace) * m.trialShare : 0;
-      m.shown = Math.max(m.shown, Math.min(1, m.reported + creep));
-      return `${Math.floor(m.shown * 100)}%`;
-    };
-    // A timer, not requestAnimationFrame: animation frames stop in a hidden view.
-    const paint = () => {
-      label.textContent = `RAM ${pct(meters.ram, phase === "ram")} · VRAM ${pct(meters.vram, phase === "vram")}`;
-    };
-    paint();
-    const frame = setInterval(paint, 100);
-    try {
-      const result = await measureBandwidth((p, d, done, trial) => {
-        const now = performance.now();
-        if (p !== phase) {
-          meters[phase].reported = 1; // the phase before is complete
-          phase = p;
-        }
-        const m = meters[p];
-        if (done > m.reported) {
-          m.pace = (now - m.lastAt) / ((done - m.reported) / trial);
-          m.reported = done;
-        }
-        m.lastAt = now;
-        m.trialShare = trial;
-        status.textContent = d;
-      });
-      clearInterval(frame);
-      await chrome.storage.local.set({ bandwidth: result });
-      renderSpeed(result);
-      status.textContent = "";
-      label.textContent = "Done. Push to measure again";
-    } catch (err) {
-      status.textContent = `failed: ${err instanceof Error ? err.message : String(err)}`;
-      label.textContent = "Push the lever to try again";
-      renderSpeed(await getBandwidth());
-    } finally {
-      clearInterval(frame);
-      btn.classList.remove("down");
-      $("speedOut").classList.remove("measuring");
-      btn.removeAttribute("aria-busy");
-      measuring = false;
-    }
   });
 
   chrome.storage.onChanged.addListener((changes) => {
@@ -581,7 +464,8 @@ async function main() {
 
   renderFit();
   await renderMemory();
-  renderSpeed(await getBandwidth());
+  // The memory speed test was removed; drop any result an older version saved.
+  void chrome.storage.local.remove("bandwidth");
   setInterval(() => void renderMemory(), 2000);
   let askRam = true;
   const pollHelper = async () => {

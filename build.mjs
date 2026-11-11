@@ -59,7 +59,6 @@ const options = {
     background: join(here, "src", "background.ts"),
     content: join(here, "src", "content.ts"),
     popup: join(here, "src", "popup.ts"),
-    bwWorker: join(here, "src", "bwWorker.ts"),
   },
   outdir: out,
   bundle: true,
@@ -72,7 +71,7 @@ const options = {
 
 // Content scripts are classic scripts: no top-level import/export allowed.
 const contentOptions = { ...options, entryPoints: { content: options.entryPoints.content }, format: "iife" };
-const moduleOptions = { ...options, entryPoints: { background: options.entryPoints.background, popup: options.entryPoints.popup, bwWorker: options.entryPoints.bwWorker } };
+const moduleOptions = { ...options, entryPoints: { background: options.entryPoints.background, popup: options.entryPoints.popup } };
 
 if (watch) {
   const a = await esbuild.context(contentOptions);

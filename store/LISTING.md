@@ -63,9 +63,6 @@ Memory estimates are typically within about 10% of what llama.cpp actually uses;
 ▶ THIS MACHINE
 The popup shows your CPU, RAM (with type and speed when known) and GPU. Choose how much memory to keep free, or use what your apps hold right now. Override the VRAM size or the memory type (dedicated, unified, CPU only) if the detection is wrong.
 
-▶ MEMORY SPEED
-Push the lever to measure RAM and GPU memory bandwidth. Memory bandwidth, more than compute, decides how fast a local model generates text.
-
 ▶ MEASURED VRAM (OPTIONAL)
 Browsers cannot report free VRAM. If you install a LlamaToaster worker on the same computer, the extension reads the real figure through a local helper (AMD, Intel, NVIDIA and Apple silicon). Without it, VRAM comes from a table of known cards and your own "used by other apps" setting, and the popup says so.
 
@@ -89,11 +86,11 @@ Open source (MIT): github.com/LlamaToaster/extension
 | Slot | File | Size |
 |---|---|---|
 | Store icon | `media/icon-128.png` | 128×128 |
-| Screenshots (1–5) | `media/screenshot-1-hf-page.png` … `screenshot-5-privacy.png` | 1280×800 |
+| Screenshots (1–4) | `media/screenshot-1-hf-page.png` … `screenshot-4-privacy.png` | 1280×800 |
 | Small promo tile (required) | `media/promo-small-440x280.png` | 440×280 |
 | Marquee promo tile (optional) | `media/promo-marquee-1400x560.png` | 1400×560 |
 
-Screenshot order and what each shows: 1 the marks on a Hugging Face page; 2 the quant chips close up with the legend; 3 the popup's "This machine" panel (real values from an RX 6600 XT / Ryzen 5 5600X machine, VRAM measured through the worker); 4 the memory-speed benchmark; 5 privacy. Screenshots 1–4 are real captures; the captions are added around them. The Hugging Face page in screenshot 1 is `unsloth/gemma-3-12b-it-GGUF`.
+Screenshot order and what each shows: 1 the marks on a Hugging Face page; 2 the quant chips close up with the legend; 3 the popup's "This machine" panel (real values from an RX 6600 XT / Ryzen 5 5600X machine, VRAM measured through the worker); 4 privacy. Screenshots 1–3 are real captures; the captions are added around them. The Hugging Face page in screenshot 1 is `unsloth/gemma-3-12b-it-GGUF`.
 
 ## 3. Privacy practices tab
 
@@ -109,12 +106,11 @@ Show, on Hugging Face GGUF model pages, whether each quantized model fits the me
 |---|---|
 | `storage` | Saves the user's settings (mode, context size, memory to keep free) and caches the model file facts read from GGUF headers so a page opened again shows its marks immediately. |
 | `system.memory` | Reads the computer's total and available RAM, which is compared with the memory a model needs. |
-| `system.cpu` | Reads the CPU model name and thread count, shown in the popup and used to label the memory-speed benchmark. |
+| `system.cpu` | Reads the CPU model name and thread count, shown in the popup. |
 | `nativeMessaging` | Optional. Lets the extension talk to the local LlamaToaster worker's helper (`com.llamatoaster.vram`), which reads the GPU's real VRAM total and usage and the installed RAM's type and speed. Browsers do not expose VRAM to extensions. The helper only answers this extension's ID, is read-only, and the extension works without it. |
 | `sidePanel` | Lets the user dock the popup as Chrome's side panel (the "Side panel" button). |
 | Host permissions `https://huggingface.co/*`, `https://*.huggingface.co/*`, `https://*.hf.co/*` | Reads a model repository's file list and the first part of each `.gguf` file (the header) with HTTP range requests. File downloads are redirected to Hugging Face's own file hosts (`*.hf.co`). |
 | Content script on `https://huggingface.co/*` | Replaces the "Hardware compatibility" heading with the toaster and adds the fit mark to each quant chip. |
-| `'wasm-unsafe-eval'` (CSP) | The memory-speed benchmark runs a small WebAssembly SIMD kernel bundled in the extension. No remote code is loaded. |
 
 **Remote code:** No, I am not using remote code. (All code is in the package; `fetch` only retrieves data from Hugging Face.)
 

@@ -58,11 +58,7 @@ const jobs = {
     <div style="position:absolute;left:60px;top:110px;width:640px"><span class="tag">This machine</span><h1>Knows your RAM, <b>VRAM</b> and memory type</h1>
       <p class="sub" style="margin-top:22px">Set how much to keep free, or use what every app holds right now. With the optional LlamaToaster worker, VRAM is measured, not guessed.</p></div>
     <div class="shot" style="left:760px;top:24px;width:401px;height:752px"><img src="${src("popup.png")}"></div>${brandL}`)],
-  "screenshot-4-speed": [1280, 800, page(`
-    <div style="position:absolute;left:60px;top:110px;width:600px"><span class="tag">Memory speed</span><h1>Push the lever, <b>measure your memory</b></h1>
-      <p class="sub" style="margin-top:22px">RAM read, write and copy by thread count, and GPU memory bandwidth through WebGPU. It is what decides tokens per second.</p></div>
-    <div class="shot" style="left:720px;top:60px;width:520px;height:682px"><img src="${src("popup-memory-speed.png")}" style="width:520px;margin-top:-237px"></div>${brandL}`)],
-  "screenshot-5-privacy": [1280, 800, page(`
+  "screenshot-4-privacy": [1280, 800, page(`
     <div style="position:absolute;left:90px;top:110px;right:90px"><span class="tag">Private by design</span><h1>Runs in your browser. <b>Nothing is sent to us.</b></h1>
       <ul style="margin-top:44px;width:900px">
         <li><span>Reads only the <b>model header</b>, a few megabytes per quant, never the model itself</span></li>
