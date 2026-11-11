@@ -44,7 +44,7 @@ Click the toolbar button. The **Side panel** button docks the same page in Chrom
   - GPU name and VRAM size (**edit** to override), and the **memory type**: Auto (shows what it detected), Dedicated VRAM, Unified (shared RAM), or CPU only.
   - **VRAM available** (free of total) and a bar for RAM and for VRAM. With a worker, the bar splits into the apps holding the memory.
   - **Keep free**: a lever under each bar sets how much memory the model must leave alone. Any amount from 0 to everything usable, in 0.1 GB steps, with a pull onto the presets (RAM 0 / 2 / 4 / 6 / 8 GB, VRAM 0 / 0.5 / 1 / 1.5 / 2 GB), every whole GB, and **in use now**: what all apps hold when a check starts, captured once so the marks don't move afterwards.
-  - Without a worker the browser cannot see what other apps use, so a **Used by other apps** field (0.5 GB by default) stands in.
+  - Without a worker the browser cannot see what other apps use, so the whole card counts as free; the note under the bar says so.
 - **What the marks mean**: the legend.
 
 ![The popup, "This machine" panel](store/media/screenshot-3-machine.png)
@@ -59,7 +59,7 @@ The KV cache is sized as **f16**, and the context is capped at the model's own m
 
 ## What a browser can't see
 
-- **Free VRAM.** No browser API reports VRAM (unless a worker is installed, see below). The total comes from a table of known cards (override it in the popup; a GPU not in the table asks for the size). "Available" is that total minus the amount you say other apps use.
+- **Free VRAM.** No browser API reports VRAM (unless a worker is installed, see below). The total comes from a table of known cards (override it in the popup; a GPU not in the table asks for the size). Without a worker, "available" is the whole card.
 - **Unified memory** is detected from the GPU name: Apple, Intel iGPU, Radeon integrated graphics. Apple silicon gets about 3/4 of RAM, like Metal's working-set budget. Override the memory type in the popup.
 
 ## Measured VRAM through the worker

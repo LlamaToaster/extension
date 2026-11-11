@@ -36,9 +36,6 @@ export interface Settings {
   ramMarginMib: number;
   /** User-entered total VRAM, MiB; null = use the table. */
   vramOverrideMib: number | null;
-  /** VRAM already taken by the desktop and other apps, MiB. A browser cannot
-   * read this, so it is the user's estimate. */
-  vramReservedMib: number;
   /** null = auto (detected). */
   unifiedOverride: boolean | null;
   /** Run as CPU-only regardless of the GPU found. */
@@ -57,7 +54,6 @@ export const DEFAULT_SETTINGS: Settings = {
   ramMarginMode: "current",
   ramMarginMib: 4096,
   vramOverrideMib: null,
-  vramReservedMib: 512,
   unifiedOverride: null,
   cpuOnly: false,
   sidePanel: false,
