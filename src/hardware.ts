@@ -6,8 +6,8 @@ import { isFastUnified } from "../shared/fitGrade";
 // GPU: WebGL's unmasked renderer string names the card; WebGPU says the
 // vendor and whether a real adapter exists. No browser API reports VRAM size
 // or how much of it is free, so the total comes from a table of known cards
-// (the user can override it) and "available" is total minus what the user
-// says the desktop and other apps hold.
+// (the user can override it). Without a worker nothing reads what other apps
+// hold, so the whole card counts as available.
 
 import type { GpuInfo, Settings } from "./settings";
 
@@ -196,7 +196,7 @@ export function memoryPicture(gpu: GpuInfo | null, ram: RamReading | null, s: Se
       return { kind: "unified", deviceTotalMib: total, deviceFreeMib: free, ...base, fastUnified: apple || isFastUnified([helper.name]) };
     }
     const total = s.vramOverrideMib ?? helper.dedicatedTotalMib;
-    const used = helper.dedicatedUsedMib ?? s.vramReservedMib;
+    const used = helper.dedicatedUsedMib ?? 0;
     return { kind: "vram", deviceTotalMib: total, deviceFreeMib: Math.max(0, total - used), ...base };
   }
   return estimatedPicture(gpu, ram, s);
@@ -230,7 +230,8 @@ function estimatedPicture(gpu: GpuInfo | null, ram: RamReading | null, s: Settin
   return {
     kind: "vram",
     deviceTotalMib: total,
-    deviceFreeMib: Math.max(0, total - s.vramReservedMib),
+    // Without a worker nothing reads what other apps hold: the whole card counts.
+    deviceFreeMib: total,
     ramTotalMib: ramTotal,
     ramAvailableMib: ramAvail,
     vramUnknown: false,

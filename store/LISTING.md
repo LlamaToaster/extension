@@ -64,7 +64,7 @@ Memory estimates are typically within about 10% of what llama.cpp actually uses;
 The popup shows your CPU, RAM (with type and speed when known) and GPU. Choose how much memory to keep free, or use what your apps hold right now. Override the VRAM size or the memory type (dedicated, unified, CPU only) if the detection is wrong.
 
 ▶ MEASURED VRAM (OPTIONAL)
-Browsers cannot report free VRAM. If you install a LlamaToaster worker on the same computer, the extension reads the real figure through a local helper (AMD, Intel, NVIDIA and Apple silicon). Without it, VRAM comes from a table of known cards and your own "used by other apps" setting, and the popup says so.
+Browsers cannot report free VRAM. If you install a LlamaToaster worker on the same computer, the extension reads the real figure through a local helper (AMD, Intel, NVIDIA and Apple silicon). Without it, VRAM comes from a table of known cards and the whole card counts as free, and the popup says so.
 
 ▶ MANUAL OR AUTO
 Manual: nothing is read until you click the toaster. Auto: every model page is checked as it opens. You can dock the popup as a side panel.

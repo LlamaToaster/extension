@@ -122,19 +122,13 @@ async function renderMemory() {
   $("kindAuto").textContent = `Auto · ${auto === "vram" ? "Dedicated VRAM" : auto === "unified" ? "Unified (shared RAM)" : "CPU only"}`;
   $<HTMLSelectElement>("kind").value = settings.cpuOnly ? "cpu" : settings.unifiedOverride == null ? "auto" : settings.unifiedOverride ? "unified" : "vram";
 
-  // Without a worker the browser can't see what other apps hold: the user says.
-  $("reserveRow").style.display = mem.kind === "vram" && !mem.measured ? "" : "none";
-  const resInput = $<HTMLInputElement>("vramReserved");
-  if (document.activeElement !== resInput) resInput.value = String(+(settings.vramReservedMib / 1024).toFixed(2));
 
   $("availLabel").textContent = mem.kind === "unified" ? "GPU can use" : mem.kind === "cpu" ? "Model memory" : "VRAM available";
-  const unmeasured = mem.kind === "vram" && !mem.measured;
   if (mem.kind === "cpu") parts("vramAvail", "RAM only");
-  else if (unmeasured) parts("vramAvail", "n/a free of ", [vram != null ? size(vram) : "?"]);
+  else if (mem.vramUnknown) parts("vramAvail", "n/a free of ?");
   else parts("vramAvail", [gb(mem.deviceFreeMib)], " free of ", [size(mem.deviceTotalMib)]);
   // VRAM: free vs in use. LlamaToaster's own llama.cpp counts as in use here.
   setBar("vramBar", 0, deviceInUseMib(mem), mem.deviceTotalMib, mem.measured ? barApps(helper?.apps, APP_MIN_MIB.vram) : []);
-  // Unmeasured, the bar shows the user's "used by other apps" estimate, so the keep-free lever has a scale.
   $("vramBar").style.display = mem.kind === "cpu" || mem.vramUnknown ? "none" : "";
   $("legendLlama").style.display = llamaRam > 0 ? "" : "none";
 
@@ -148,7 +142,7 @@ async function renderMemory() {
     note.textContent = `Measured through the LlamaToaster worker (${helper?.vendor}): free = total − what every app on this GPU uses right now.`;
   } else if (mem.kind === "vram") {
     const err = helperRes && !helperRes.ok && !helperRes.missing ? `Worker helper error: ${escapeHtml(helperRes.error)}. ` : "";
-    note.innerHTML = `${err}A browser can't read free VRAM, so the marks assume other apps use ${gb(settings.vramReservedMib)}. To measure it, install a LlamaToaster worker on this machine: ${workerLink}`;
+    note.innerHTML = `${err}A browser can't read free VRAM, so the marks count the whole card as free. To measure it, install a LlamaToaster worker on this machine: ${workerLink}`;
   } else if (mem.kind === "unified") {
     note.textContent = /apple/i.test(`${gpu?.vendor} ${gpu?.name}`) ? "Apple silicon: the GPU can use about 3/4 of RAM." : "The GPU shares system RAM.";
   } else note.textContent = "";
@@ -363,11 +357,6 @@ async function save(patch: Partial<Settings>, now = false) {
   await renderMemory();
 }
 
-const gbInput = (el: HTMLInputElement) => {
-  const v = parseFloat(el.value);
-  return Number.isFinite(v) && v >= 0 ? Math.round(v * 1024) : null;
-};
-
 async function main() {
   renderDock();
   void chrome.windows?.getCurrent().then((w) => (windowId = w.id));
@@ -419,9 +408,6 @@ async function main() {
   $<HTMLInputElement>("vramTotal").addEventListener("change", (e) => {
     const v = parseFloat((e.target as HTMLInputElement).value);
     void save({ vramOverrideMib: Number.isFinite(v) && v > 0 ? Math.round(v * 1024) : null });
-  });
-  $<HTMLInputElement>("vramReserved").addEventListener("change", (e) => {
-    void save({ vramReservedMib: gbInput(e.target as HTMLInputElement) ?? 512 });
   });
 
   // Side panel: open it from the popup's click (it needs the user gesture,
