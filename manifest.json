@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "LlamaToaster",
   "short_name": "LlamaToaster",
-  "version": "0.1.2",
+  "version": "0.1.1",
   "description": "Will this local AI model run on your PC? See how many layers fit in VRAM and what context you can afford, before you download.",
   "icons": {
     "16": "icons/icon-16.png",

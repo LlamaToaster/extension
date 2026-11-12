@@ -1,4 +1,4 @@
-﻿/* LlamaToaster v2 palette, as client/src/styles/index.css. */
+/* LlamaToaster v2 palette, as client/src/styles/index.css. */
 @font-face { font-family: "Barlow"; font-weight: 400; src: url("fonts/barlow-400.woff2") format("woff2"); }
 @font-face { font-family: "Barlow"; font-weight: 500; src: url("fonts/barlow-500.woff2") format("woff2"); }
 @font-face { font-family: "Barlow"; font-weight: 600; src: url("fonts/barlow-600.woff2") format("woff2"); }
@@ -299,3 +299,5 @@ header h1.wordmark img { width: auto; height: 30px; border-radius: 0; }
 .whatif-on { font-size: 12px; color: var(--muted); display: flex; align-items: center; gap: 6px; cursor: pointer; }
 .whatif-max { margin-top: 0; font-size: 11px; display: flex; justify-content: space-between; }
 
+#memory:not(.whatif) .wi, #memory.whatif .real { display: none !important; }
+#memory.whatif #memTitle { color: var(--accent); }

@@ -38,14 +38,24 @@
     </section>
 
     <section id="memory">
-      <h2>This machine</h2>
+      <div class="fit-head">
+        <h2 id="memTitle">This machine</h2>
+        <label class="whatif-on" data-tip="Check models against imagined RAM and VRAM sizes instead of this machine."><input type="checkbox" id="whatIfOn" /> What if</label>
+      </div>
       <div class="row"><span class="k">CPU</span><span class="v" id="cpu">…</span></div>
-      <div class="row"><span class="k">RAM</span><span class="v" id="ram">…</span></div>
-      <div class="bar" id="ramBar"><i class="llama"></i><i class="other"></i><i class="keep"></i><i class="edge"></i></div>
-      <div class="keep-track" id="ramKeep" role="slider" tabindex="0" aria-label="RAM to keep free"><span class="lbl">Keep free</span><i class="lever"></i><span class="val"></span></div>
+      <div class="real">
+        <div class="row"><span class="k">RAM</span><span class="v" id="ram">…</span></div>
+        <div class="bar" id="ramBar"><i class="llama"></i><i class="other"></i><i class="keep"></i><i class="edge"></i></div>
+        <div class="keep-track" id="ramKeep" role="slider" tabindex="0" aria-label="RAM to keep free"><span class="lbl">Keep free</span><i class="lever"></i><span class="val"></span></div>
+      </div>
+      <div class="wi">
+        <div class="row"><span class="k" id="whatIfRamLabel">RAM</span><span class="v" id="whatIfVal_ram"></span></div>
+        <input type="range" id="whatIf_ram" min="0" max="1000" step="1" aria-label="Imagined RAM size" />
+        <div class="note whatif-max" id="whatIfMax_ram"></div>
+      </div>
       <div class="row gpu-row">
         <span class="k">GPU</span>
-        <span class="v"><span id="gpu">…</span> <button class="ghost tiny" id="editVram" type="button" title="Enter the VRAM size">edit</button><br />
+        <span class="v"><span id="gpu">…</span> <button class="ghost tiny real" id="editVram" type="button" title="Enter the VRAM size">edit</button><br />
           <select id="kind" class="sub" aria-label="Memory type">
             <option value="auto" id="kindAuto">Auto</option>
             <option value="vram">Dedicated VRAM</option>
@@ -54,26 +64,18 @@
           </select>
         </span>
       </div>
-      <div class="row" id="vramTotalRow">
-        <span class="k">VRAM size</span>
-        <span class="v"><input type="number" id="vramTotal" min="0" step="0.5" /> GB <span class="pill" id="vramSrc"></span></span>
+      <div class="real">
+        <div class="row" id="vramTotalRow">
+          <span class="k">VRAM size</span>
+          <span class="v"><input type="number" id="vramTotal" min="0" step="0.5" /> GB <span class="pill" id="vramSrc"></span></span>
+        </div>
+        <div class="row"><span class="k" id="availLabel">VRAM available</span><span class="v" id="vramAvail">…</span></div>
+        <div class="bar" id="vramBar"><i class="llama"></i><i class="other"></i><i class="keep"></i><i class="edge"></i></div>
+        <div class="keep-track" id="vramKeep" role="slider" tabindex="0" aria-label="GPU memory to keep free"><span class="lbl">Keep free</span><i class="lever"></i><span class="val"></span></div>
+        <div class="legend-bar" id="legendBar"><span><b class="sw free"></b>free</span><span><b class="sw other"></b>in use</span><span id="legendLlama"><b class="sw llama"></b>LlamaToaster (RAM)</span></div>
+        <div class="note" id="memNote"></div>
       </div>
-      <div class="row"><span class="k" id="availLabel">VRAM available</span><span class="v" id="vramAvail">…</span></div>
-      <div class="bar" id="vramBar"><i class="llama"></i><i class="other"></i><i class="keep"></i><i class="edge"></i></div>
-      <div class="keep-track" id="vramKeep" role="slider" tabindex="0" aria-label="GPU memory to keep free"><span class="lbl">Keep free</span><i class="lever"></i><span class="val"></span></div>
-      <div class="legend-bar" id="legendBar"><span><b class="sw free"></b>free</span><span><b class="sw other"></b>in use</span><span id="legendLlama"><b class="sw llama"></b>LlamaToaster (RAM)</span></div>
-      <div class="note" id="memNote"></div>
-    </section>
-
-    <section id="whatIf">
-      <div class="fit-head">
-        <h2>What if</h2>
-        <label class="whatif-on"><input type="checkbox" id="whatIfOn" /> Imagine other hardware</label>
-      </div>
-      <div id="whatIfBody">
-        <div class="row"><span class="k" id="whatIfRamLabel">RAM</span><span class="v" id="whatIfVal_ram"></span></div>
-        <input type="range" id="whatIf_ram" min="0" max="1000" step="1" aria-label="Imagined RAM size" />
-        <div class="note whatif-max" id="whatIfMax_ram"></div>
+      <div class="wi">
         <div id="whatIfVramRow">
           <div class="row"><span class="k">VRAM</span><span class="v" id="whatIfVal_vram"></span></div>
           <input type="range" id="whatIf_vram" min="0" max="1000" step="1" aria-label="Imagined VRAM size" />
