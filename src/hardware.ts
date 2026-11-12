@@ -181,6 +181,28 @@ export interface MemoryPicture {
 }
 
 export function memoryPicture(gpu: GpuInfo | null, ram: RamReading | null, s: Settings, helper: HelperGpu | null = null): MemoryPicture {
+  const real = realPicture(gpu, ram, s, helper);
+  return s.whatIf ? whatIfPicture(real, s) : real;
+}
+
+/** "What if" swaps in an imagined, empty machine: the chosen RAM and VRAM
+ * sizes, all of it free. The memory kind stays the real one; a CPU-only
+ * machine imagined with VRAM becomes a dedicated-GPU machine. */
+export function whatIfPicture(real: MemoryPicture, s: Settings): MemoryPicture {
+  const ram = s.whatIfRamMib ?? real.ramTotalMib;
+  const vram = s.whatIfVramMib ?? (real.kind === "unified" ? null : real.deviceTotalMib);
+  const out: MemoryPicture = { ...real, ramTotalMib: ram, ramAvailableMib: ram, vramUnknown: false, measured: false };
+  if (real.kind === "unified") {
+    // Unified memory follows the imagined RAM (Apple keeps ~3/4 for Metal).
+    const share = real.ramTotalMib ? real.deviceTotalMib / real.ramTotalMib : 1;
+    const dev = (ram ?? 0) * share;
+    return { ...out, deviceTotalMib: dev, deviceFreeMib: dev };
+  }
+  const dev = vram ?? 0;
+  return { ...out, kind: dev > 0 ? "vram" : "cpu", deviceTotalMib: dev, deviceFreeMib: dev };
+}
+
+function realPicture(gpu: GpuInfo | null, ram: RamReading | null, s: Settings, helper: HelperGpu | null): MemoryPicture {
   const ramTotal = ram?.totalMib ?? null;
   const ramAvail = ram?.availableMib ?? null;
   if (helper && !s.cpuOnly && s.unifiedOverride == null) {
