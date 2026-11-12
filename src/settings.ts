@@ -42,6 +42,11 @@ export interface Settings {
   cpuOnly: boolean;
   /** The toolbar button opens the side panel instead of the popup. */
   sidePanel: boolean;
+  /** "What if": check against imagined RAM/VRAM sizes instead of this machine. */
+  whatIf: boolean;
+  /** Imagined sizes, MiB; null = this machine's own. */
+  whatIfRamMib: number | null;
+  whatIfVramMib: number | null;
 }
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -57,7 +62,38 @@ export const DEFAULT_SETTINGS: Settings = {
   unifiedOverride: null,
   cpuOnly: false,
   sidePanel: false,
+  whatIf: false,
+  whatIfRamMib: null,
+  whatIfVramMib: null,
 };
+
+/** What-if slider stops, GB (roughly log-spaced). Each slider also gets a
+ * stop at this machine's own size. */
+export const WHATIF_STOPS_GB = {
+  ram: [8, 12, 16, 24, 32, 48, 64, 96, 128, 192, 256, 384, 512, 768, 1024],
+  vram: [4, 6, 8, 12, 16, 24, 32, 48, 64, 96, 128, 192, 256, 384],
+  unified: [8, 16, 24, 32, 48, 64, 96, 128, 192, 256, 512, 1024],
+};
+export type WhatIfScale = keyof typeof WHATIF_STOPS_GB;
+
+/** The stops in MiB, with the own size inserted (rounded to 0.1 GB). */
+export function whatIfStops(scale: WhatIfScale, ownMib: number | null): number[] {
+  const stops = WHATIF_STOPS_GB[scale].map((g) => g * 1024);
+  if (ownMib != null && ownMib > 0) {
+    const own = Math.round(ownMib / 102.4) * 102.4;
+    if (!stops.some((s) => Math.abs(s - own) < 256)) stops.push(own);
+  }
+  return stops.sort((a, b) => a - b);
+}
+
+/** The stop nearest a value (log distance). */
+export function whatIfIndex(stops: number[], mib: number): number {
+  let best = 0;
+  for (let i = 1; i < stops.length; i++) {
+    if (Math.abs(Math.log(stops[i] / mib)) < Math.abs(Math.log(stops[best] / mib))) best = i;
+  }
+  return best;
+}
 
 export * from "./ctxSlider";
 

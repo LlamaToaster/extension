@@ -1,6 +1,7 @@
 import { deviceBudget, deviceInUseMib } from "./fit";
 import { primaryGpu, ramLabel, readHelper, type HelperApp, type HelperGpu, type HelperRam, type HelperResult } from "./helper";
 import { detectGpu, memoryPicture, readCpu, readRam, type MemoryPicture } from "./hardware";
+import { whatIfIndex, whatIfStops } from "./settings";
 import { CTX_SLIDER_MAX, ctxFromSlider, ctxLabel, getGpu, getSettings, setSettings, sliderFromCtx, ticksHtml, type GpuInfo, type MarginMode, type Settings } from "./settings";
 import { gradeSvg } from "../shared/breadMarks";
 import { fitGradeLegendLabel, fitGrades } from "../shared/fitGrade";
@@ -49,12 +50,12 @@ function setBar(id: string, llama: number, other: number, total: number, apps: H
       const seg = document.createElement("b");
       seg.className = `app t${i % APP_TINTS}`;
       seg.style.flexBasis = `${other > 0 ? ((a.mib * scale) / other) * 100 : 0}%`;
-      seg.title = `${a.name} · ${gb(a.mib)}`;
+      seg.title = `${a.name} В· ${gb(a.mib)}`;
       return seg;
     })
   );
-  oi.title = `in use ${gb(other)}${apps.length ? ` · of which ${apps.map((a) => `${a.name} ${gb(a.mib)}`).join(", ")}` : ""}`;
-  $(id).title = `${llama > 0 ? `LlamaToaster ${gb(llama)} · ` : ""}in use ${gb(other)} · free ${gb(Math.max(0, total - llama - other))}`;
+  oi.title = `in use ${gb(other)}${apps.length ? ` В· of which ${apps.map((a) => `${a.name} ${gb(a.mib)}`).join(", ")}` : ""}`;
+  $(id).title = `${llama > 0 ? `LlamaToaster ${gb(llama)} В· ` : ""}in use ${gb(other)} В· free ${gb(Math.max(0, total - llama - other))}`;
 }
 
 /** The helper's app list for a bar: above the bar's threshold, LlamaToaster's own llama.cpp left out (it has the yellow segment). */
@@ -91,20 +92,22 @@ function parts(id: string, ...bits: (string | [string])[]) {
 
 async function renderMemory() {
   const ram = await readRam();
-  const mem = memoryPicture(gpu, ram, settings, helper);
+  // "This machine" always shows the real one; the what-if box shows the imagined one.
+  const mem = memoryPicture(gpu, ram, { ...settings, whatIf: false }, helper);
+  renderWhatIf(mem);
   const llamaRam = ram ? Math.min(helperRes?.ok ? helperRes.reading.llamaRamMib : 0, ram.totalMib - ram.availableMib) : 0;
 
   const type = ramLabel(ramInfo);
-  if (ram) parts("ram", [gb(ram.availableMib)], " free of ", [size(ram.totalMib)], ...(type ? [` · ${type}`] : []));
+  if (ram) parts("ram", [gb(ram.availableMib)], " free of ", [size(ram.totalMib)], ...(type ? [` В· ${type}`] : []));
   else parts("ram", "unknown");
   $("ram").title = ramInfo ? `${ramInfo.modules} module${ramInfo.modules === 1 ? "" : "s"}${ramInfo.ratedMts ? `, rated ${ramInfo.ratedMts} MT/s` : ""}` : "RAM type and speed come from a LlamaToaster worker on this machine";
   if (ram) setBar("ramBar", llamaRam, ram.totalMib - ram.availableMib - llamaRam, ram.totalMib, barApps(helperRes?.ok ? helperRes.reading.topRam : null, APP_MIN_MIB.ram));
 
-  // GPU: name · VRAM size (or the memory kind when there is no own VRAM).
+  // GPU: name В· VRAM size (or the memory kind when there is no own VRAM).
   const name = helper?.name ?? (gpu?.noGpu ? "none found" : gpu?.name ?? "unknown");
   const vram = vramSize(mem);
-  if (mem.kind === "vram" && vram != null) parts("gpu", `${name} · ${size(vram)}`);
-  else parts("gpu", mem.kind === "cpu" ? name : mem.kind === "unified" ? `${name} · shared RAM` : `${name} · VRAM size unknown`);
+  if (mem.kind === "vram" && vram != null) parts("gpu", `${name} В· ${size(vram)}`);
+  else parts("gpu", mem.kind === "cpu" ? name : mem.kind === "unified" ? `${name} В· shared RAM` : `${name} В· VRAM size unknown`);
   $("editVram").style.display = mem.kind === "vram" ? "" : "none";
 
   // The size input shows only when it's needed: unknown card, a typed size, or "edit".
@@ -112,14 +115,14 @@ async function renderMemory() {
   $("vramTotalRow").style.display = mem.kind === "vram" && (mem.vramUnknown || editingVram || settings.vramOverrideMib != null) ? "" : "none";
   if (document.activeElement !== totalInput) totalInput.value = vram != null ? String(+(vram / 1024).toFixed(1)) : "";
   const src = $("vramSrc");
-  src.textContent = settings.vramOverrideMib != null ? "entered · clear to reset" : mem.measured ? "measured" : gpu?.tableVramMib != null ? "known card" : "enter it";
+  src.textContent = settings.vramOverrideMib != null ? "entered В· clear to reset" : mem.measured ? "measured" : gpu?.tableVramMib != null ? "known card" : "enter it";
   src.className = `pill${mem.vramUnknown ? " warn" : mem.measured && settings.vramOverrideMib == null ? " ok" : ""}`;
 
   renderLegend(mem);
 
   // "Auto" says what it found.
-  const auto = memoryPicture(gpu, ram, { ...settings, cpuOnly: false, unifiedOverride: null }, helper).kind;
-  $("kindAuto").textContent = `Auto · ${auto === "vram" ? "Dedicated VRAM" : auto === "unified" ? "Unified (shared RAM)" : "CPU only"}`;
+  const auto = memoryPicture(gpu, ram, { ...settings, whatIf: false, cpuOnly: false, unifiedOverride: null }, helper).kind;
+  $("kindAuto").textContent = `Auto В· ${auto === "vram" ? "Dedicated VRAM" : auto === "unified" ? "Unified (shared RAM)" : "CPU only"}`;
   $<HTMLSelectElement>("kind").value = settings.cpuOnly ? "cpu" : settings.unifiedOverride == null ? "auto" : settings.unifiedOverride ? "unified" : "vram";
 
 
@@ -139,7 +142,7 @@ async function renderMemory() {
     note.className = "note warn";
     note.innerHTML = `This GPU is not in the built-in list: enter its VRAM size, or install a LlamaToaster worker on this machine to measure it (${workerLink}).`;
   } else if (mem.measured) {
-    note.textContent = `Measured through the LlamaToaster worker (${helper?.vendor}): free = total − what every app on this GPU uses right now.`;
+    note.textContent = `Measured through the LlamaToaster worker (${helper?.vendor}): free = total в€’ what every app on this GPU uses right now.`;
   } else if (mem.kind === "vram") {
     const err = helperRes && !helperRes.ok && !helperRes.missing ? `Worker helper error: ${escapeHtml(helperRes.error)}. ` : "";
     note.innerHTML = `${err}A browser can't read free VRAM, so the marks count the whole card as free. To measure it, install a LlamaToaster worker on this machine: ${workerLink}`;
@@ -163,6 +166,55 @@ async function renderMemory() {
         };
   if (keepDragging !== "ram") renderKeep("ram");
   if (keepDragging !== "vram") renderKeep("vram");
+}
+
+// ------------------------------------------------------------ what if
+//
+// Imagined RAM/VRAM: the whole range shows at once, on fixed log-ish stops
+// (WHATIF_STOPS_GB) plus a stop at this machine's own size.
+
+let whatIfOwn = { ram: 0, vram: 0 };
+const whatIfStopList: Record<"ram" | "vram", number[]> = { ram: [], vram: [] };
+const big = (mib: number) => (mib >= 1024 * 1024 ? `${+(mib / 1048576).toFixed(1)} TB` : size(mib));
+
+function whatIfValue(id: "ram" | "vram"): number {
+  const v = id === "ram" ? settings.whatIfRamMib : settings.whatIfVramMib;
+  return v ?? whatIfOwn[id];
+}
+
+function renderWhatIf(real: MemoryPicture) {
+  const unified = real.kind === "unified";
+  whatIfOwn = { ram: real.ramTotalMib ?? 16384, vram: real.kind === "vram" && !real.vramUnknown ? real.deviceTotalMib : 8192 };
+  whatIfStopList.ram = whatIfStops(unified ? "unified" : "ram", real.ramTotalMib);
+  whatIfStopList.vram = whatIfStops("vram", real.kind === "vram" && !real.vramUnknown ? real.deviceTotalMib : null);
+  $<HTMLInputElement>("whatIfOn").checked = settings.whatIf;
+  $("whatIfBody").style.display = settings.whatIf ? "" : "none";
+  $("whatIfVramRow").style.display = unified ? "none" : "";
+  $("whatIfRamLabel").textContent = unified ? "Unified memory" : "RAM";
+  for (const id of ["ram", "vram"] as const) {
+    const stops = whatIfStopList[id];
+    const value = whatIfValue(id);
+    const slider = $<HTMLInputElement>(`whatIf_${id}`);
+    slider.max = String(stops.length - 1);
+    slider.value = String(whatIfIndex(stops, value));
+    setFill(slider);
+    const x = value / Math.max(whatIfOwn[id], 1);
+    $(`whatIfVal_${id}`).textContent = `${big(value)} · ${x >= 10 ? x.toFixed(0) : +x.toFixed(1)}× yours`;
+    $(`whatIfMax_${id}`).innerHTML = `<span>${big(stops[0])}</span><span>${big(stops[stops.length - 1])}</span>`;
+  }
+  const note = unified ? "The GPU share follows the unified memory size. " : "";
+  $("whatIfNote").textContent = `${note}Marks on open pages are checked against this imagined machine, with all of it free.`;
+}
+
+function wireWhatIf() {
+  $<HTMLInputElement>("whatIfOn").addEventListener("change", (e) => void save({ whatIf: (e.target as HTMLInputElement).checked }, true));
+  $("whatIfReset").addEventListener("click", () => void save({ whatIfRamMib: null, whatIfVramMib: null }, true));
+  for (const id of ["ram", "vram"] as const) {
+    const slider = $<HTMLInputElement>(`whatIf_${id}`);
+    const key = id === "ram" ? "whatIfRamMib" : "whatIfVramMib";
+    slider.addEventListener("input", () => void save({ [key]: whatIfStopList[id][+slider.value] } as Partial<Settings>));
+    slider.addEventListener("change", () => void save({}, true));
+  }
 }
 
 // ------------------------------------------------------------ keep free
@@ -211,7 +263,7 @@ function renderKeep(id: KeepId) {
   const lever = track.querySelector<HTMLElement>(".lever")!;
   const val = track.querySelector<HTMLElement>(".val")!;
   lever.style.left = val.style.left = `${x * 100}%`;
-  val.textContent = m.mode === "current" ? `in use${m.estimate ? " (est.)" : ""} · ${gb(keep)}` : gb(keep);
+  val.textContent = m.mode === "current" ? `in use${m.estimate ? " (est.)" : ""} В· ${gb(keep)}` : gb(keep);
   // Left of the lever when it fits there without touching the label; otherwise right of it, and never over the label.
   const lblEnd = track.querySelector<HTMLElement>(".lbl")!.offsetWidth + 8;
   const leverPx = x * track.clientWidth;
@@ -369,10 +421,11 @@ async function main() {
   await chrome.storage.local.set({ gpu: fresh });
 
   const cpu = await readCpu();
-  if (cpu) parts("cpu", `${cpu.model} · ${cpu.threads} threads`);
+  if (cpu) parts("cpu", `${cpu.model} В· ${cpu.threads} threads`);
   else parts("cpu", "unknown");
 
   $("ticks").innerHTML = ticksHtml();
+  wireWhatIf();
 
   // Manual / Auto: a wall toggle switch. The switch flips it; each word picks its side.
   $("leverSlot").addEventListener("click", () => void save({ mode: settings.mode === "auto" ? "manual" : "auto" }, true));

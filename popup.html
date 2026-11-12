@@ -65,6 +65,25 @@
       <div class="note" id="memNote"></div>
     </section>
 
+    <section id="whatIf">
+      <div class="fit-head">
+        <h2>What if</h2>
+        <label class="whatif-on"><input type="checkbox" id="whatIfOn" /> Imagine other hardware</label>
+      </div>
+      <div id="whatIfBody">
+        <div class="row"><span class="k" id="whatIfRamLabel">RAM</span><span class="v" id="whatIfVal_ram"></span></div>
+        <input type="range" id="whatIf_ram" min="0" max="1000" step="1" aria-label="Imagined RAM size" />
+        <div class="note whatif-max" id="whatIfMax_ram"></div>
+        <div id="whatIfVramRow">
+          <div class="row"><span class="k">VRAM</span><span class="v" id="whatIfVal_vram"></span></div>
+          <input type="range" id="whatIf_vram" min="0" max="1000" step="1" aria-label="Imagined VRAM size" />
+          <div class="note whatif-max" id="whatIfMax_vram"></div>
+        </div>
+        <div class="note" id="whatIfNote"></div>
+        <button class="ghost tiny" id="whatIfReset" type="button">reset to this machine</button>
+      </div>
+    </section>
+
     <section id="legendSec">
       <button type="button" class="fold-head legend-head" id="legendHead" aria-expanded="true" aria-controls="fitLegend">
         <span class="legend-title">What the marks mean</span>
