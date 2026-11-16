@@ -300,4 +300,13 @@ header h1.wordmark img { width: auto; height: 30px; border-radius: 0; }
 .whatif-max { margin-top: 0; font-size: 11px; display: flex; justify-content: space-between; }
 
 #memory:not(.whatif) .wi, #memory.whatif .real { display: none !important; }
-#memory.whatif #memTitle { color: var(--accent); }
+.wi-notches { position: relative; height: 6px; margin: 6px 0 0; }
+.wi-notches i { position: absolute; bottom: 0; width: 1px; height: 4px; margin-left: -0.5px; background: var(--border-strong); }
+.wi-notches i.own { height: 6px; background: var(--accent); }
+.wi-track { margin: -12px 0 8px; }
+.wi-bar { display: flex; height: 8px; margin: 1px 0 0; }
+.wi-real { flex: 0 0 50%; margin: 0; height: 100%; box-sizing: border-box; }
+.wi-real.empty { background: var(--well); }
+.wi-proj { flex: 1; position: relative; box-sizing: border-box; border: 1px solid var(--border); border-left: 0; background: linear-gradient(to right, #4a4239, var(--bg)); }
+.whatif-on input[type=checkbox] { -webkit-appearance: none; appearance: none; width: 14px; height: 14px; margin: 0; box-sizing: border-box; flex: none; background: var(--well); border: 1px solid var(--border-strong); border-radius: 2px; position: relative; cursor: pointer; }
+.whatif-on input[type=checkbox]:checked::after { content: ""; position: absolute; left: 50%; top: 45%; width: 3px; height: 7px; box-sizing: border-box; border: solid var(--muted); border-width: 0 1.5px 1.5px 0; transform: translate(-50%, -50%) rotate(45deg); }

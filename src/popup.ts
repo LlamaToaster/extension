@@ -1,7 +1,7 @@
 import { deviceBudget, deviceInUseMib } from "./fit";
 import { primaryGpu, ramLabel, readHelper, type HelperApp, type HelperGpu, type HelperRam, type HelperResult } from "./helper";
-import { detectGpu, memoryPicture, readCpu, readRam, type MemoryPicture } from "./hardware";
-import { whatIfIndex, whatIfStops } from "./settings";
+import { detectGpu, memoryPicture, readCpu, readRam, type MemoryPicture, type RamReading } from "./hardware";
+import { WHATIF_STOPS_GB } from "./settings";
 import { CTX_SLIDER_MAX, ctxFromSlider, ctxLabel, getGpu, getSettings, setSettings, sliderFromCtx, ticksHtml, type GpuInfo, type MarginMode, type Settings } from "./settings";
 import { gradeSvg } from "../shared/breadMarks";
 import { fitGradeLegendLabel, fitGrades } from "../shared/fitGrade";
@@ -94,8 +94,8 @@ async function renderMemory() {
   const ram = await readRam();
   // "This machine" always shows the real one; the what-if box shows the imagined one.
   const mem = memoryPicture(gpu, ram, { ...settings, whatIf: false }, helper);
-  renderWhatIf(mem);
   const llamaRam = ram ? Math.min(helperRes?.ok ? helperRes.reading.llamaRamMib : 0, ram.totalMib - ram.availableMib) : 0;
+  renderWhatIf(mem, ram, llamaRam);
 
   const type = ramLabel(ramInfo);
   if (ram) parts("ram", [gb(ram.availableMib)], " free of ", [size(ram.totalMib)], ...(type ? [` · ${type}`] : []));
@@ -175,33 +175,86 @@ async function renderMemory() {
 
 let whatIfOwn = { ram: 0, vram: 0 };
 const whatIfStopList: Record<"ram" | "vram", number[]> = { ram: [], vram: [] };
+/** The left half: every smaller step up to (and ending with) this machine's own size; empty when there is none. */
+const whatIfLowList: Record<"ram" | "vram", number[]> = { ram: [], vram: [] };
 const big = (mib: number) => (mib >= 1024 * 1024 ? `${+(mib / 1048576).toFixed(1)} TB` : size(mib));
+
+/** The right half's stops: this machine's own size first, then every larger step. */
+function whatIfRight(scale: "ram" | "vram" | "unified", own: number): number[] {
+  const larger = WHATIF_STOPS_GB[scale].map((g) => g * 1024).filter((s) => s > own + 256);
+  return own > 0 ? [own, ...larger] : larger;
+}
+/** The left half's stops: every smaller step, then this machine's own size. */
+function whatIfLeft(scale: "ram" | "vram" | "unified", own: number): number[] {
+  const smaller = WHATIF_STOPS_GB[scale].map((g) => g * 1024).filter((s) => s < own - 256);
+  return own > 0 && smaller.length ? [...smaller, own] : [];
+}
+/** A value's place between the stops as a continuous index (log-interpolated). */
+function whatIfPos(stops: number[], v: number): number {
+  const n = stops.length;
+  if (n < 2 || v <= stops[0]) return 0;
+  if (v >= stops[n - 1]) return n - 1;
+  let i = 0;
+  while (stops[i + 1] <= v) i++;
+  return i + Math.log(v / stops[i]) / Math.log(stops[i + 1] / stops[i]);
+}
+/** The value at a continuous index, in sensible round steps; the stops themselves stay exact. */
+function whatIfAt(stops: number[], t: number): number {
+  const i = Math.min(stops.length - 2, Math.max(0, Math.floor(t)));
+  if (stops.length < 2) return stops[0] ?? 0;
+  const v = stops[i] * Math.pow(stops[i + 1] / stops[i], t - i);
+  const step = v < 16384 ? 512 : v < 131072 ? 1024 : 8192;
+  return Math.min(stops[stops.length - 1], Math.max(stops[0], Math.round(v / step) * step));
+}
+const WHATIF_PULL_PX = 4;
+/** Where stop i sits along the bar: the right half, 50%..100%. */
+const whatIfPct = (i: number, n: number) => 50 + (n > 1 ? (i / (n - 1)) * 50 : 0);
+/** Where a value sits along the whole bar, 0..100%: smaller sizes left of the middle, larger right. */
+function whatIfPlace(low: number[], up: number[], v: number): number {
+  if (low.length > 1 && v < low[low.length - 1]) return (whatIfPos(low, v) / (low.length - 1)) * 50;
+  return whatIfPct(whatIfPos(up, v), up.length);
+}
 
 function whatIfValue(id: "ram" | "vram"): number {
   const v = id === "ram" ? settings.whatIfRamMib : settings.whatIfVramMib;
   return v ?? whatIfOwn[id];
 }
 
-function renderWhatIf(real: MemoryPicture) {
+function renderWhatIf(real: MemoryPicture, ram: RamReading | null, llamaRam: number) {
   const unified = real.kind === "unified";
-  whatIfOwn = { ram: real.ramTotalMib ?? 16384, vram: real.kind === "vram" && !real.vramUnknown ? real.deviceTotalMib : 8192 };
-  whatIfStopList.ram = whatIfStops(unified ? "unified" : "ram", real.ramTotalMib);
-  whatIfStopList.vram = whatIfStops("vram", real.kind === "vram" && !real.vramUnknown ? real.deviceTotalMib : null);
+  const ownVram = real.kind === "vram" && !real.vramUnknown ? real.deviceTotalMib : 0;
+  whatIfOwn = { ram: real.ramTotalMib ?? 0, vram: ownVram };
+  whatIfStopList.ram = whatIfRight(unified ? "unified" : "ram", whatIfOwn.ram);
+  whatIfStopList.vram = whatIfRight("vram", whatIfOwn.vram);
+  whatIfLowList.ram = whatIfLeft(unified ? "unified" : "ram", whatIfOwn.ram);
+  whatIfLowList.vram = whatIfLeft("vram", whatIfOwn.vram);
   $<HTMLInputElement>("whatIfOn").checked = settings.whatIf;
   $("memory").classList.toggle("whatif", settings.whatIf);
   $("memTitle").textContent = settings.whatIf ? "What if" : "This machine";
   $("whatIfVramRow").style.display = unified ? "none" : "";
   $("whatIfRamLabel").textContent = unified ? "Unified memory" : "RAM";
+
+  // Left half: this machine as the common bars draw it (free / in use).
+  if (ram) setBar("whatIfReal_ram", llamaRam, ram.totalMib - ram.availableMib - llamaRam, ram.totalMib, barApps(helperRes?.ok ? helperRes.reading.topRam : null, APP_MIN_MIB.ram));
+  setBar("whatIfReal_vram", 0, deviceInUseMib(real), whatIfOwn.vram, real.measured ? barApps(helper?.apps, APP_MIN_MIB.vram) : []);
+  $("whatIfReal_ram").classList.toggle("empty", whatIfOwn.ram <= 0);
+  $("whatIfReal_vram").classList.toggle("empty", whatIfOwn.vram <= 0);
+
+  // Right half: the possible sizes, brighter up to the lever.
   for (const id of ["ram", "vram"] as const) {
     const stops = whatIfStopList[id];
     const value = whatIfValue(id);
-    const slider = $<HTMLInputElement>(`whatIf_${id}`);
-    slider.max = String(stops.length - 1);
-    slider.value = String(whatIfIndex(stops, value));
-    setFill(slider);
-    const x = value / Math.max(whatIfOwn[id], 1);
-    $(`whatIfVal_${id}`).textContent = `${big(value)} · ${x >= 10 ? x.toFixed(0) : +x.toFixed(1)}× yours`;
-    $(`whatIfMax_${id}`).innerHTML = `<span>${big(stops[0])}</span><span>${big(stops[stops.length - 1])}</span>`;
+    const low = whatIfLowList[id];
+    const pct = whatIfPlace(low, stops, value);
+    const lowNotches = low.slice(0, -1).map((_, i) => `<i style="left:${((i / (low.length - 1)) * 50).toFixed(3)}%"></i>`);
+    $(`whatIfNotches_${id}`).innerHTML = lowNotches
+      .concat(stops.map((_, i) => `<i${i === 0 && whatIfOwn[id] > 0 ? ' class="own"' : ""} style="left:${whatIfPct(i, stops.length).toFixed(3)}%"></i>`))
+      .join("");
+    $(`whatIf_${id}`).querySelector<HTMLElement>(".lever")!.style.left = `${pct}%`;
+    $(`whatIf_${id}`).setAttribute("aria-valuetext", big(value));
+    const own = whatIfOwn[id];
+    const x = own > 0 ? value / own : 0;
+    $(`whatIfVal_${id}`).textContent = own > 0 ? `${big(value)} · ${x >= 10 ? x.toFixed(0) : +x.toFixed(1)}× yours` : stops.length && value > 0 ? big(value) : "none";
   }
   const note = unified ? "The GPU share follows the unified memory size. " : "";
   $("whatIfNote").textContent = `${note}Marks on open pages are checked against this imagined machine, with all of it free.`;
@@ -211,10 +264,50 @@ function wireWhatIf() {
   $<HTMLInputElement>("whatIfOn").addEventListener("change", (e) => void save({ whatIf: (e.target as HTMLInputElement).checked }, true));
   $("whatIfReset").addEventListener("click", () => void save({ whatIfRamMib: null, whatIfVramMib: null }, true));
   for (const id of ["ram", "vram"] as const) {
-    const slider = $<HTMLInputElement>(`whatIf_${id}`);
+    const track = $(`whatIf_${id}`);
     const key = id === "ram" ? "whatIfRamMib" : "whatIfVramMib";
-    slider.addEventListener("input", () => void save({ [key]: whatIfStopList[id][+slider.value] } as Partial<Settings>));
-    slider.addEventListener("change", () => void save({}, true));
+    const pick = (clientX: number, now: boolean) => {
+      const stops = whatIfStopList[id];
+      if (!stops.length) return;
+      const r = track.getBoundingClientRect();
+      const f = Math.max(0, Math.min(1, (clientX - r.left) / Math.max(r.width, 1)));
+      // Left of the middle: smaller sizes; right of it: larger ones. Smooth, with a pull
+      // onto the nearest notch when the lever is within a few pixels of it.
+      const low = whatIfLowList[id];
+      const left = f < 0.5 && low.length > 1;
+      const list = left ? low : stops;
+      const t = left ? f * 2 * (low.length - 1) : f <= 0.5 ? 0 : (f - 0.5) * 2 * (stops.length - 1);
+      const pxPerStop = (r.width / 2) / Math.max(1, list.length - 1);
+      const near = Math.round(t);
+      const value = Math.abs(t - near) * pxPerStop <= WHATIF_PULL_PX ? list[near] : whatIfAt(list, t);
+      void save({ [key]: value } as Partial<Settings>, now);
+    };
+    let dragging = false;
+    track.addEventListener("pointerdown", (e) => {
+      dragging = true;
+      track.classList.add("drag");
+      track.setPointerCapture(e.pointerId);
+      pick(e.clientX, false);
+    });
+    track.addEventListener("pointermove", (e) => { if (dragging) pick(e.clientX, false); });
+    const end = (e: PointerEvent) => {
+      if (!dragging) return;
+      dragging = false;
+      track.classList.remove("drag");
+      pick(e.clientX, true);
+    };
+    track.addEventListener("pointerup", end);
+    track.addEventListener("pointercancel", end);
+    track.addEventListener("keydown", (e) => {
+      const stops = [...whatIfLowList[id].slice(0, -1), ...whatIfStopList[id]];
+      const d = e.key === "ArrowRight" || e.key === "ArrowUp" ? 1 : e.key === "ArrowLeft" || e.key === "ArrowDown" ? -1 : 0;
+      if (!d || !stops.length) return;
+      e.preventDefault();
+      // Arrow keys jump from notch to notch.
+      const cur = whatIfValue(id);
+      const next = d > 0 ? stops.find((s) => s > cur + 1) ?? stops[stops.length - 1] : [...stops].reverse().find((s) => s < cur - 1) ?? stops[0];
+      void save({ [key]: next } as Partial<Settings>, true);
+    });
   }
 }
 

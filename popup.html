@@ -50,8 +50,9 @@
       </div>
       <div class="wi">
         <div class="row"><span class="k" id="whatIfRamLabel">RAM</span><span class="v" id="whatIfVal_ram"></span></div>
-        <input type="range" id="whatIf_ram" min="0" max="1000" step="1" aria-label="Imagined RAM size" />
-        <div class="note whatif-max" id="whatIfMax_ram"></div>
+        <div class="wi-notches" id="whatIfNotches_ram"></div>
+        <div class="wi-bar" id="whatIfBar_ram"><div class="bar wi-real" id="whatIfReal_ram"><i class="llama"></i><i class="other"></i></div><div class="wi-proj"></div></div>
+        <div class="keep-track wi-track" id="whatIf_ram" role="slider" tabindex="0" aria-label="Imagined RAM size"><i class="lever"></i></div>
       </div>
       <div class="row gpu-row">
         <span class="k">GPU</span>
@@ -78,8 +79,9 @@
       <div class="wi">
         <div id="whatIfVramRow">
           <div class="row"><span class="k">VRAM</span><span class="v" id="whatIfVal_vram"></span></div>
-          <input type="range" id="whatIf_vram" min="0" max="1000" step="1" aria-label="Imagined VRAM size" />
-          <div class="note whatif-max" id="whatIfMax_vram"></div>
+          <div class="wi-notches" id="whatIfNotches_vram"></div>
+        <div class="wi-bar" id="whatIfBar_vram"><div class="bar wi-real" id="whatIfReal_vram"><i class="llama"></i><i class="other"></i></div><div class="wi-proj"></div></div>
+        <div class="keep-track wi-track" id="whatIf_vram" role="slider" tabindex="0" aria-label="Imagined VRAM size"><i class="lever"></i></div>
         </div>
         <div class="note" id="whatIfNote"></div>
         <button class="ghost tiny" id="whatIfReset" type="button">reset to this machine</button>
