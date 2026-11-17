@@ -45,6 +45,8 @@ h2 { font-size: 13px; text-transform: uppercase; letter-spacing: 0.08em; color: 
 
 header { display: flex; align-items: center; gap: 10px; padding: 12px 16px; border-bottom: 1px solid var(--border); background: var(--surface); }
 header img { width: 36px; height: 36px; }
+/* The llama grows upward only: its bottom stays where it was, the extra height goes into the header padding above it. */
+header > img:first-child { width: 44px; height: 44px; margin-top: -8px; align-self: flex-end; }
 header .dock { margin-left: auto; }
 header .gh { display: inline-flex; color: var(--muted); }
 header .gh:hover { color: var(--accent); }
