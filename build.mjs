@@ -26,6 +26,8 @@ for (const f of ["manifest.json", "popup.html", "popup.css", "content.css"]) cpS
 writeFileSync(join(out, "panel.html"), readFileSync(join(here, "popup.html"), "utf8").replace("<body>", '<body class="panel">'));
 for (const s of [16, 32, 48, 128]) cpSync(join(here, "icons", `icon-${s}.png`), join(out, "icons", `icon-${s}.png`));
 cpSync(join(here, "icons", "llama.png"), join(out, "icons", "llama.png"));
+// The popup header's llama, cut from the original at 1x, 2x and 3x so the browser never resamples it.
+for (const s of [44, 88, 132]) cpSync(join(here, "icons", `llama-${s}.png`), join(out, "icons", `llama-${s}.png`));
 cpSync(join(here, "icons", "wordmark.png"), join(out, "icons", "wordmark.png"));
 
 const fontDir = join(here, "node_modules", "@fontsource");
