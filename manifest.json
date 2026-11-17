@@ -14,9 +14,9 @@
     "default_title": "LlamaToaster",
     "default_popup": "popup.html",
     "default_icon": {
-      "16": "icons/icon-16.png",
-      "32": "icons/icon-32.png",
-      "48": "icons/icon-48.png"
+      "16": "icons/toolbar-16.png",
+      "32": "icons/toolbar-32.png",
+      "48": "icons/toolbar-48.png"
     }
   },
   "side_panel": {
