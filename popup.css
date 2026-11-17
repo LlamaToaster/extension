@@ -296,7 +296,22 @@ header h1.wordmark img { width: auto; height: 30px; border-radius: 0; }
 .logo-rule i { flex: 1; height: 1.5px; background: var(--border-strong); border-radius: 1px; }
 #legendSec { border-bottom: 0; }
 
-.whatif-on { font-size: 12px; color: var(--muted); display: flex; align-items: center; gap: 6px; cursor: pointer; }
+.whatif-on { position: relative; font-size: 12px; color: var(--muted); display: flex; align-items: center; gap: 6px; cursor: pointer; }
+/* A hover popup that says what What if is, on the checkbox and on the title once it is on. */
+.whatif-on[data-tip]::after, #memTitle[data-tip]::after {
+  content: attr(data-tip);
+  position: absolute; top: calc(100% + 6px); right: 0; z-index: 10;
+  width: max-content; max-width: 250px;
+  padding: 6px 8px; border: 1px solid #8a7968; border-radius: 4px;
+  background: #3a3128; color: var(--fg);
+  font: 400 12px/1.35 system-ui, sans-serif; letter-spacing: normal; text-transform: none; text-align: left; text-shadow: none;
+  box-shadow: 0 0 0 3px var(--bg), 0 6px 16px rgba(0, 0, 0, 0.8);
+  opacity: 0; visibility: hidden; pointer-events: none;
+  transition: opacity 0.12s ease-out, visibility 0.12s;
+}
+#memTitle[data-tip] { position: relative; cursor: help; }
+#memTitle[data-tip]::after { right: auto; left: 0; }
+.whatif-on[data-tip]:hover::after, #memTitle[data-tip]:hover::after { opacity: 1; visibility: visible; transition-delay: 0.25s; }
 .whatif-max { margin-top: 0; font-size: 11px; display: flex; justify-content: space-between; }
 
 #memory:not(.whatif) .wi, #memory.whatif .real { display: none !important; }

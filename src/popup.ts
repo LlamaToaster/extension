@@ -209,10 +209,31 @@ function whatIfAt(stops: number[], t: number): number {
 const WHATIF_PULL_PX = 4;
 /** Where stop i sits along the bar: the right half, 50%..100%. */
 const whatIfPct = (i: number, n: number) => 50 + (n > 1 ? (i / (n - 1)) * 50 : 0);
-/** Where a value sits along the whole bar, 0..100%: smaller sizes left of the middle, larger right. */
-function whatIfPlace(low: number[], up: number[], v: number): number {
-  if (low.length > 1 && v < low[low.length - 1]) return (whatIfPos(low, v) / (low.length - 1)) * 50;
+/** Where a value sits along the whole bar, 0..100%: up to this machine's own size the bar is
+ * linear (the memory you have, 0..50%); above it the larger stops follow on a log scale. */
+function whatIfPlace(own: number, up: number[], v: number): number {
+  if (own > 0 && v < own) return Math.max(0, v / own) * 50;
   return whatIfPct(whatIfPos(up, v), up.length);
+}
+/** Left half, as the keep-free lever moves: 0.1 GB steps, a slight pull onto every whole GB and the own size. */
+const WHATIF_MIN_MIB = 1024;
+function whatIfLinear(own: number, px: number, width: number): number {
+  const pull = Math.min(WHATIF_PULL_PX, (0.2 * width * 1024) / Math.max(own, 1)); // at most a fifth of the gap between whole GBs
+  const toX = (v: number) => (v / own) * width;
+  let best: number | null = null;
+  let bd = pull;
+  const stops = [own];
+  for (let g = 1024; g < own; g += 1024) stops.push(g);
+  for (const s of stops) {
+    const d = Math.abs(toX(s) - px);
+    if (d < bd) {
+      bd = d;
+      best = s;
+    }
+  }
+  if (best != null) return best;
+  const raw = (px / width) * own;
+  return Math.max(Math.min(WHATIF_MIN_MIB, own), Math.min(own, Math.round(raw / KEEP_STEP) * KEEP_STEP));
 }
 
 function whatIfValue(id: "ram" | "vram"): number {
@@ -231,6 +252,9 @@ function renderWhatIf(real: MemoryPicture, ram: RamReading | null, llamaRam: num
   $<HTMLInputElement>("whatIfOn").checked = settings.whatIf;
   $("memory").classList.toggle("whatif", settings.whatIf);
   $("memTitle").textContent = settings.whatIf ? "What if" : "This machine";
+  const whatIfTip = $("whatIfOn").parentElement!.getAttribute("data-tip") ?? "";
+  if (settings.whatIf) $("memTitle").setAttribute("data-tip", whatIfTip);
+  else $("memTitle").removeAttribute("data-tip");
   $("whatIfVramRow").style.display = unified ? "none" : "";
   $("whatIfRamLabel").textContent = unified ? "Unified memory" : "RAM";
 
@@ -245,8 +269,8 @@ function renderWhatIf(real: MemoryPicture, ram: RamReading | null, llamaRam: num
     const stops = whatIfStopList[id];
     const value = whatIfValue(id);
     const low = whatIfLowList[id];
-    const pct = whatIfPlace(low, stops, value);
-    const lowNotches = low.slice(0, -1).map((_, i) => `<i style="left:${((i / (low.length - 1)) * 50).toFixed(3)}%"></i>`);
+    const pct = whatIfPlace(whatIfOwn[id], stops, value);
+    const lowNotches = low.slice(0, -1).map((_, i) => `<i style="left:${((low[i] / whatIfOwn[id]) * 50).toFixed(3)}%"></i>`);
     $(`whatIfNotches_${id}`).innerHTML = lowNotches
       .concat(stops.map((_, i) => `<i${i === 0 && whatIfOwn[id] > 0 ? ' class="own"' : ""} style="left:${whatIfPct(i, stops.length).toFixed(3)}%"></i>`))
       .join("");
@@ -254,7 +278,10 @@ function renderWhatIf(real: MemoryPicture, ram: RamReading | null, llamaRam: num
     $(`whatIf_${id}`).setAttribute("aria-valuetext", big(value));
     const own = whatIfOwn[id];
     const x = own > 0 ? value / own : 0;
-    $(`whatIfVal_${id}`).textContent = own > 0 ? `${big(value)} · ${x >= 10 ? x.toFixed(0) : +x.toFixed(1)}× yours` : stops.length && value > 0 ? big(value) : "none";
+    if (own > 0) parts(`whatIfVal_${id}`, [big(value)], ` · ${x >= 10 ? x.toFixed(0) : x < 0.1 ? +x.toFixed(2) : +x.toFixed(1)}× yours`);
+    else if (stops.length && value > 0) parts(`whatIfVal_${id}`, [big(value)]);
+    else parts(`whatIfVal_${id}`, "none");
+    $(`whatIf_${id}`).title = `Imagined ${id === "ram" ? "RAM" : "VRAM"} size`;
   }
   const note = unified ? "The GPU share follows the unified memory size. " : "";
   $("whatIfNote").textContent = `${note}Marks on open pages are checked against this imagined machine, with all of it free.`;
@@ -273,13 +300,16 @@ function wireWhatIf() {
       const f = Math.max(0, Math.min(1, (clientX - r.left) / Math.max(r.width, 1)));
       // Left of the middle: smaller sizes; right of it: larger ones. Smooth, with a pull
       // onto the nearest notch when the lever is within a few pixels of it.
-      const low = whatIfLowList[id];
-      const left = f < 0.5 && low.length > 1;
-      const list = left ? low : stops;
-      const t = left ? f * 2 * (low.length - 1) : f <= 0.5 ? 0 : (f - 0.5) * 2 * (stops.length - 1);
-      const pxPerStop = (r.width / 2) / Math.max(1, list.length - 1);
-      const near = Math.round(t);
-      const value = Math.abs(t - near) * pxPerStop <= WHATIF_PULL_PX ? list[near] : whatIfAt(list, t);
+      const own = whatIfOwn[id];
+      let value: number;
+      if (f < 0.5 && own > 0) {
+        value = whatIfLinear(own, f * r.width, r.width / 2);
+      } else {
+        const t = f <= 0.5 ? 0 : (f - 0.5) * 2 * (stops.length - 1);
+        const pxPerStop = r.width / 2 / Math.max(1, stops.length - 1);
+        const near = Math.round(t);
+        value = Math.abs(t - near) * pxPerStop <= WHATIF_PULL_PX ? stops[near] : whatIfAt(stops, t);
+      }
       void save({ [key]: value } as Partial<Settings>, now);
     };
     let dragging = false;
@@ -299,13 +329,21 @@ function wireWhatIf() {
     track.addEventListener("pointerup", end);
     track.addEventListener("pointercancel", end);
     track.addEventListener("keydown", (e) => {
-      const stops = [...whatIfLowList[id].slice(0, -1), ...whatIfStopList[id]];
+      const stops = whatIfStopList[id];
       const d = e.key === "ArrowRight" || e.key === "ArrowUp" ? 1 : e.key === "ArrowLeft" || e.key === "ArrowDown" ? -1 : 0;
       if (!d || !stops.length) return;
       e.preventDefault();
-      // Arrow keys jump from notch to notch.
+      // Up to the own size: 0.1 GB (Shift: 1 GB) like the keep-free lever. Above it, notch to notch.
       const cur = whatIfValue(id);
-      const next = d > 0 ? stops.find((s) => s > cur + 1) ?? stops[stops.length - 1] : [...stops].reverse().find((s) => s < cur - 1) ?? stops[0];
+      const own = whatIfOwn[id];
+      let next: number;
+      if (own > 0 && (cur < own - 1 || (d < 0 && cur <= own + 1))) {
+        const step = e.shiftKey ? 1024 : KEEP_STEP;
+        next = Math.max(Math.min(WHATIF_MIN_MIB, own), Math.min(own, Math.round((cur + d * step) / KEEP_STEP) * KEEP_STEP));
+        if (d > 0 && cur + step >= own) next = own;
+      } else {
+        next = d > 0 ? stops.find((s) => s > cur + 1) ?? stops[stops.length - 1] : [...stops].reverse().find((s) => s < cur - 1) ?? stops[0];
+      }
       void save({ [key]: next } as Partial<Settings>, true);
     });
   }
