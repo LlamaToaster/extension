@@ -61,6 +61,7 @@ const options = {
     background: join(here, "src", "background.ts"),
     content: join(here, "src", "content.ts"),
     popup: join(here, "src", "popup.ts"),
+    theme: join(here, "src", "themeBoot.ts"),
   },
   outdir: out,
   bundle: true,
@@ -72,7 +73,8 @@ const options = {
 };
 
 // Content scripts are classic scripts: no top-level import/export allowed.
-const contentOptions = { ...options, entryPoints: { content: options.entryPoints.content }, format: "iife" };
+// The theme boot script runs in <head> before the page paints: classic too.
+const contentOptions = { ...options, entryPoints: { content: options.entryPoints.content, theme: options.entryPoints.theme }, format: "iife" };
 const moduleOptions = { ...options, entryPoints: { background: options.entryPoints.background, popup: options.entryPoints.popup } };
 
 if (watch) {
