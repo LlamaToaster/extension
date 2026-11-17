@@ -6,6 +6,7 @@ import { CTX_SLIDER_MAX, ctxFromSlider, ctxLabel, getGpu, getSettings, setSettin
 import { gradeSvg } from "../shared/breadMarks";
 import { fitGradeLegendLabel, fitGrades } from "../shared/fitGrade";
 import { memoryScale } from "./fit";
+import { THEME_KEY, applyTheme, readTheme, saveTheme, type Theme } from "./theme";
 
 const $ = <T extends HTMLElement = HTMLElement>(id: string) => document.getElementById(id) as T;
 const gb = (mib: number, digits = 1) => `${(mib / 1024).toFixed(digits)} GB`;
@@ -69,12 +70,15 @@ function vramSize(mem: MemoryPicture): number | null {
   return mem.deviceTotalMib;
 }
 
-/** The bread marks this machine can show, best first (the popup is dark). */
+/** The bread marks this machine can show, best first, drawn for the theme on screen. */
+let lastLegendMem: MemoryPicture | null = null;
 function renderLegend(mem: MemoryPicture) {
+  lastLegendMem = mem;
   const scale = memoryScale(mem);
+  const dark = readTheme() === "dark";
   // Built from constants in shared/breadMarks.ts and shared/fitGrade.ts.
   $("fitLegend").innerHTML = fitGrades(scale)
-    .map((g) => `<span class="mark">${gradeSvg(scale, g, { px: 14, dark: true })}</span><span>${fitGradeLegendLabel(scale, g, "yours")}</span>`)
+    .map((g) => `<span class="mark">${gradeSvg(scale, g, { px: 14, dark })}</span><span>${fitGradeLegendLabel(scale, g, "yours")}</span>`)
     .join("");
 }
 
@@ -517,6 +521,34 @@ function renderDock() {
   b.title = inPanel ? "Close the side panel; the toolbar button opens LlamaToaster as a popup again" : "Open in Chrome's side panel: it stays open next to the page instead of covering it";
 }
 
+// The theme button flips night <-> day; its icon shows the theme it switches to.
+const THEME_ICONS: Record<Theme, string> = {
+  light: '<svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true"><circle cx="8" cy="8" r="3" fill="currentColor"/><path d="M8 1v2M8 13v2M1 8h2M13 8h2M3.05 3.05l1.4 1.4M11.55 11.55l1.4 1.4M3.05 12.95l1.4-1.4M11.55 4.45l1.4-1.4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>',
+  dark: '<svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true"><path d="M13.6 10.4A6 6 0 0 1 5.6 2.4a6 6 0 1 0 8 8z" fill="currentColor"/></svg>',
+};
+function renderTheme() {
+  const theme = readTheme();
+  applyTheme(theme);
+  const next: Theme = theme === "dark" ? "light" : "dark";
+  const b = $("theme");
+  b.innerHTML = THEME_ICONS[next];
+  const label = next === "light" ? "Switch to day mode" : "Switch to night mode";
+  b.title = label;
+  b.setAttribute("aria-label", label);
+  if (lastLegendMem) renderLegend(lastLegendMem);
+}
+function wireTheme() {
+  renderTheme();
+  $("theme").addEventListener("click", () => {
+    saveTheme(readTheme() === "dark" ? "light" : "dark");
+    renderTheme();
+  });
+  // The other view (popup vs panel) changed it.
+  addEventListener("storage", (e) => {
+    if (e.key === THEME_KEY || e.key === null) renderTheme();
+  });
+}
+
 function escapeHtml(s: string) {
   return s.replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]!);
 }
@@ -542,6 +574,7 @@ async function save(patch: Partial<Settings>, now = false) {
 }
 
 async function main() {
+  wireTheme();
   renderDock();
   void chrome.windows?.getCurrent().then((w) => (windowId = w.id));
   settings = await getSettings();
