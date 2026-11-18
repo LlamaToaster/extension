@@ -329,6 +329,10 @@ button.ghost.tiny { padding: 0 5px; font-size: 11px; line-height: 16px; vertical
 .keep-track .lever::after { content: ""; position: absolute; left: 2px; top: 2px; width: 1.2px; height: 10px; border-radius: 1px; background: #ffd08a; }
 .keep-track.drag .lever { cursor: grabbing; }
 .keep-track .val { position: absolute; top: 2px; line-height: 20px; font-size: 12px; color: var(--accent-text); white-space: nowrap; pointer-events: none; }
+/* The keep-free levers sit on their bar, like the What if lever. Only the
+   lever moves up: the track stays on its row under the bar, so the bar's
+   per-app hover names still work. */
+.keep-track:not(.wi-track) .lever { top: -13px; }
 
 /* Manual / Auto: a rocker key between the two words. The chosen word gets an
    outer glow, its letters keep their colour. */
