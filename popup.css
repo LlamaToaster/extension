@@ -54,6 +54,9 @@
   --shadow-pop: 0 6px 18px rgba(0, 0, 0, 0.5);
   --shadow-tip: 0 6px 16px rgba(0, 0, 0, 0.8);
   --lever-shadow: 0 1px 1px rgba(0, 0, 0, 0.6);
+  /* Notice border and ghost button hover. */
+  --notice-border: #5a4421;
+  --ghost-hover: var(--surface-raised);
   --chevron: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%23ab9f8d' stroke-width='1.5' fill='none'/%3E%3C/svg%3E");
   color-scheme: dark;
 }
@@ -104,6 +107,8 @@
   --shadow-pop: 0 8px 24px rgba(17, 24, 39, 0.12), 0 2px 6px rgba(17, 24, 39, 0.06);
   --shadow-tip: 0 8px 24px rgba(17, 24, 39, 0.12), 0 2px 6px rgba(17, 24, 39, 0.06);
   --lever-shadow: 0 1px 2px rgba(17, 24, 39, 0.25);
+  --notice-border: #f2dfb8;
+  --ghost-hover: #f9fafb;
   --chevron: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%236b7280' stroke-width='1.5' fill='none'/%3E%3C/svg%3E");
   color-scheme: light;
 }
@@ -418,22 +423,18 @@ header h1.wordmark img { width: auto; height: 30px; border-radius: 0; }
 .whatif-on input[type=checkbox] { -webkit-appearance: none; appearance: none; width: 14px; height: 14px; margin: 0; box-sizing: border-box; flex: none; background: var(--well); border: 1px solid var(--border-strong); border-radius: 2px; position: relative; cursor: pointer; }
 .whatif-on input[type=checkbox]:checked::after { content: ""; position: absolute; left: 50%; top: 45%; width: 3px; height: 7px; box-sizing: border-box; border: solid var(--muted); border-width: 0 1.5px 1.5px 0; transform: translate(-50%, -50%) rotate(45deg); }
 
-/* Day mode layout, after Hugging Face's side boxes: each section is a
-   rounded bordered card on the white page, headings in sentence case,
-   rounded controls. */
-:root[data-theme="light"] header { background: var(--bg); border-bottom-color: #f3f4f6; }
-:root[data-theme="light"] section { margin: 10px 12px 0; border: 1px solid var(--border); border-radius: 10px; }
-:root[data-theme="light"] #legendSec { border: 1px solid var(--border); }
-:root[data-theme="light"] h2 { text-transform: none; letter-spacing: 0; font-family: "Barlow", system-ui, sans-serif; font-size: 14px; font-weight: 600; color: var(--fg-2); }
-:root[data-theme="light"] .webapp-notice { border: 1px solid #f2dfb8; border-radius: 8px; }
-:root[data-theme="light"] .bar { border: 0; border-radius: 4px; overflow: hidden; }
-:root[data-theme="light"] .legend-bar .sw { border-radius: 2px; border-color: transparent; }
-:root[data-theme="light"] .wi-proj { border: 0; border-radius: 0 4px 4px 0; }
-:root[data-theme="light"] input[type="number"] { border-radius: 6px; border-color: var(--border-strong); }
-:root[data-theme="light"] button.primary, :root[data-theme="light"] button.ghost { border-radius: 8px; }
-:root[data-theme="light"] button.ghost:hover { background: #f9fafb; }
-:root[data-theme="light"] .pill { border-radius: 6px; }
-:root[data-theme="light"] .toggle-label[data-tip]::after, :root[data-theme="light"] .whatif-on[data-tip]::after, :root[data-theme="light"] #memTitle[data-tip]::after { border-radius: 8px; }
-:root[data-theme="light"] ::picker(select) { border: 1px solid var(--border); border-radius: 8px; }
-:root[data-theme="light"] .logo-rule { color: var(--border-strong); }
-:root[data-theme="light"] .logo-rule i { background: var(--border); }
+/* One layout for both themes: flat full-width sections split by a rule
+   (no cards: the popup is small and the notice, bars and slider already
+   have their own frames), sentence-case headings and rounded controls,
+   as on Hugging Face. Only the colours differ between night and day. */
+h2 { text-transform: none; letter-spacing: 0; font-family: "Barlow", system-ui, sans-serif; font-size: 14px; font-weight: 600; color: var(--fg-2); }
+.webapp-notice { border: 1px solid var(--notice-border); border-radius: 8px; }
+.bar { border: 0; border-radius: 4px; overflow: hidden; }
+.legend-bar .sw { border-radius: 2px; border-color: transparent; }
+.wi-proj { border: 0; border-radius: 0 4px 4px 0; }
+input[type="number"] { border-radius: 6px; border-color: var(--border-strong); }
+button.primary, button.ghost { border-radius: 8px; }
+button.ghost:hover { background: var(--ghost-hover); }
+.pill { border-radius: 6px; }
+.toggle-label[data-tip]::after, .whatif-on[data-tip]::after, #memTitle[data-tip]::after { border-radius: 8px; }
+::picker(select) { border: 1px solid var(--border); border-radius: 8px; }
