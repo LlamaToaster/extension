@@ -17,34 +17,27 @@ Images: `store/media/` (regenerate with `node store/make-media.mjs`).
 Will this local AI model run on your PC? See how many layers fit in VRAM and what context you can afford, before you download.
 ```
 
+Proposed for the next upload (adds the search words GGUF and Hugging Face; 117 characters; change the manifest `description` to use it):
+
+```
+Will this GGUF model run on your PC? See on Hugging Face how many layers fit in VRAM and what context you can afford.
+```
+
 **Category:** Productivity → Tools (a general-audience category; Developer Tools undersells it). If the dashboard lists categories differently, pick "Tools".  **Language:** English
 
 **Detailed description:**
 
 ```
-Will this local AI model actually run on your computer? Find out on the model page, before you download a single gigabyte.
+Will this local AI model actually run on your computer? Find out on the Hugging Face model page, before you download a single gigabyte.
 
-▶ THE PROBLEM
-Running AI locally means picking from an enormous catalog: hundreds of thousands of model repositories for llama.cpp, the most popular engine for local inference, and almost 4 million GGUF files on Hugging Face. There are plenty of benchmarks that tell you how good a model is. Nobody can tell you for sure whether it will work on YOUR system.
+• Every GGUF quant gets a fit mark: all on the GPU, partial offload, or not enough memory
+• See how many layers fit in your VRAM and how much goes to RAM, MoE experts included
+• Move the context slider and every mark updates at once
+• Reads only a few megabytes per quant. No account, no tracking
 
-And one model is rarely one file. It comes in anywhere from a few to about twenty quantizations. If you already know which model you want, choosing the exact quant is a puzzle of its own, and what you really want is the most bits that still run well on your hardware.
+Stop downloading 20 GB to find out it crashes with out-of-memory, or quietly slows down because part of the model spilled from VRAM into RAM.
 
-Everyone knows the rule: put as many layers as possible into video memory. But:
-• What if the VRAM can't hold all the layers?
-• How many layers fit in YOUR VRAM, and how many have to go to slow system RAM? What about the experts in mixture-of-experts models?
-• The longer the context, the more memory it needs. How much context can you afford?
-
-The usual way to find out is to download several models, load them in your favorite local-AI app, tweak settings blindly on a chatbot's advice, and wait for either an out-of-memory crash or, worse, a silent slowdown when part of the model quietly spills from VRAM into RAM, which nobody warns you about.
-
-▶ WHAT LLAMATOASTER DOES
-You don't download the model and you don't run it. LlamaToaster reads just a few megabytes of each quant, instead of tens or even hundreds of gigabytes.
-
-Open a model page on Hugging Face and click the toaster. Every quantization gets a mark that tells you, before downloading:
-• Whether it fits at all
-• How many layers go on your GPU and how much goes to RAM, including the experts of MoE models
-• Whether it still fits at the context length you choose: move the slider and every mark updates at once
-
-The marks, from best to worst:
+▶ THE MARKS, FROM BEST TO WORST
 • All layers on the GPU, at the model's maximum context
 • All layers on the GPU, at your context
 • All layers on the GPU, with the MoE experts in RAM
@@ -52,7 +45,7 @@ The marks, from best to worst:
 • Partial offload: under half of the layers on the GPU
 • Not enough memory
 
-Hover a mark for the figures: VRAM and RAM needed, layers on the GPU, KV cache, file size.
+Open a model page, click the toaster, and hover a mark for the figures: VRAM and RAM needed, layers on the GPU, KV cache, file size.
 
 ▶ HOW IT WORKS
 LlamaToaster reads only the model's own header (a few megabytes per quant, with small HTTP range requests; never the model itself) and places it on your GPU and RAM the way llama.cpp's own fit logic does, including the KV cache for your chosen context and MoE layouts. It covers the architectures llama.cpp supports and works with Windows, macOS and Linux machines.
