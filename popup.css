@@ -309,8 +309,11 @@ footer { padding: 10px 16px 14px; font-size: 12px; color: var(--muted); }
 /* In the side panel the page fills the panel's width. */
 body.panel { width: auto; min-height: 100vh; }
 
-.webapp-notice { margin-top: 10px; padding: 8px 10px; font-size: 12px; color: var(--fg-2); background: var(--accent-tint); border-left: 2px solid var(--accent); }
-.webapp-notice a { color: var(--accent-text); font-weight: 600; }
+footer p { margin: 0; }
+/* The accuracy note sits quietly in the footer: same muted text, a bit smaller. */
+.webapp-notice { margin-top: 22px !important; font-size: 11px; line-height: 1.45; text-align: center; opacity: 0.6; transition: opacity .15s; }
+.webapp-notice:hover { opacity: 1; }
+.webapp-notice a { color: var(--accent-text); }
 .note a { color: var(--accent-text); }
 
 button.ghost.tiny { padding: 0 5px; font-size: 11px; line-height: 16px; vertical-align: 1px; }
@@ -441,7 +444,7 @@ header h1.wordmark img { width: auto; height: 30px; border-radius: 0; }
    have their own frames), sentence-case headings and rounded controls,
    as on Hugging Face. Only the colours differ between night and day. */
 h2 { text-transform: none; letter-spacing: 0; font-family: "Barlow", system-ui, sans-serif; font-size: 14px; font-weight: 600; color: var(--fg-2); }
-.webapp-notice { border: 1px solid var(--notice-border); border-radius: 8px; }
+
 .bar { border: 0; border-radius: 4px; overflow: hidden; }
 .legend-bar .sw { border-radius: 2px; border-color: transparent; }
 .wi-proj { border: 0; border-radius: 0 4px 4px 0; }
