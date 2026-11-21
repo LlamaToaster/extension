@@ -47,6 +47,8 @@ export interface Settings {
   /** Imagined sizes, MiB; null = this machine's own. */
   whatIfRamMib: number | null;
   whatIfVramMib: number | null;
+  /** Hover text on a quant's mark: false = the one-line headline, true = every figure of the fit under it. */
+  moreDetails: boolean;
 }
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -65,6 +67,7 @@ export const DEFAULT_SETTINGS: Settings = {
   whatIf: false,
   whatIfRamMib: null,
   whatIfVramMib: null,
+  moreDetails: false,
 };
 
 /** What-if slider stops, GB (roughly log-spaced). Each slider also gets a

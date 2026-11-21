@@ -10,6 +10,8 @@ import toasterSvg from "virtual:toaster-svg";
 import { deviceBudget, deviceInUseMib, evaluateFit, ramInUseMib, type FitAnswer } from "./fit";
 import { detectGpu, memoryPicture, type MemoryPicture, type RamReading } from "./hardware";
 import type { ModelFacts } from "./hfHeader";
+import { transformerLayers } from "./layers";
+import { tipText } from "./tooltip";
 import { CTX_SLIDER_MAX, ctxFromSlider, ctxLabel, getGpu, getSettings, setSettings, sliderFromCtx, ticksHtml, type GpuInfo, type Settings } from "./settings";
 import { mapChipFiles } from "./fileMap";
 import { HF_AUX_LABELS, type AuxTag } from "../shared/hfAuxFiles";
@@ -104,6 +106,8 @@ interface ModelInfo {
   slider: HTMLInputElement;
   value: HTMLSpanElement;
   ticks: HTMLDivElement;
+  /** The "More details" checkbox on the info row: the same setting as the popup's. */
+  more: HTMLInputElement;
   /** The model's maximum context the slider is capped at (null until a header is read). */
   maxCtx: number | null;
 }
@@ -180,10 +184,8 @@ function renderChip(c: Chip) {
   const m = c.mark;
   if (!page?.ready || c.state === "idle" || c.state === "pending" || c.state === "skipped") {
     m.remove();
-    c.button.classList.remove("lt-marked");
     return;
   }
-  c.button.classList.add("lt-marked");
   m.className = "lt-mark";
   if (c.state === "error") {
     m.textContent = "⚠️";
@@ -192,7 +194,7 @@ function renderChip(c: Chip) {
     // Built from constants in shared/breadMarks.ts, never from page content.
     if (c.answer.grade != null) m.innerHTML = gradeSvg(c.answer.scale, c.answer.grade, { px: 14, dark: pageIsDark() });
     else m.textContent = c.answer.mark;
-    m.dataset.tip = c.answer.headline;
+    m.dataset.tip = tipText(c.answer, settings.moreDetails);
   }
   m.onmouseenter = () => showTip(m);
   m.onmouseleave = hideTip;
@@ -291,12 +293,25 @@ function buildInfo(): ModelInfo {
   const row = Object.assign(document.createElement("div"), { className: "lt-info-ctx" });
   const label = Object.assign(document.createElement("span"), { className: "lt-info-k", textContent: "Context:" });
   const value = Object.assign(document.createElement("span"), { className: "lt-info-v" });
-  row.append(label, value);
+  // "More details": the popup's checkbox, on the same setting (see the listener below).
+  const more = Object.assign(document.createElement("input"), { type: "checkbox" });
+  const moreLabel = Object.assign(document.createElement("label"), { className: "lt-info-more" });
+  moreLabel.append(more, "More details");
+  moreLabel.dataset.tip = "Show more details about each file when you hover its mark on this page";
+  moreLabel.addEventListener("mouseenter", () => showTip(moreLabel));
+  moreLabel.addEventListener("mouseleave", hideTip);
+  row.append(moreLabel, label, value);
   const slider = Object.assign(document.createElement("input"), { type: "range", min: "0", step: "1", className: "lt-range" });
   slider.setAttribute("aria-label", "Context size for the fit check");
   const ticks = Object.assign(document.createElement("div"), { className: "lt-ticks" });
   root.append(facts, slider, ticks, row); // "Context  N tokens" reads under the scale
-  const info: ModelInfo = { root, facts, slider, value, ticks, maxCtx: null };
+  const info: ModelInfo = { root, facts, slider, value, ticks, more, maxCtx: null };
+  // The popup's checkbox: the same setting, and the marks' hover text follows it at once.
+  more.addEventListener("change", () => {
+    settings = { ...settings, moreDetails: more.checked };
+    reevaluate();
+    void setSettings({ moreDetails: more.checked }).catch((err) => console.warn("LlamaToaster: could not save the setting", err));
+  });
   // Same setting as the popup's slider: moving either moves the other.
   slider.addEventListener("input", () => {
     const c = Math.min(ctxFromSlider(Number(slider.value)), info.maxCtx ?? Infinity);
@@ -333,7 +348,7 @@ function flushCtxSave() {
   void setSettings({ ctx }).catch((err) => console.warn("LlamaToaster: could not save the context", err));
 }
 
-/** One quant's header describes the model: layers, experts and context are the same in every quant. */
+/** One quant's header describes the model: experts and context are the same in every quant, and so are the transformer layers (layers.ts). */
 function modelFacts(p: PageState): ModelFacts | null {
   return p.chips.find((c) => c.facts)?.facts ?? null;
 }
@@ -342,11 +357,12 @@ function renderInfo(p: PageState) {
   const info = p.bar?.info;
   if (!info) return;
   info.root.classList.toggle("lt-dark", pageIsDark());
+  info.more.checked = settings.moreDetails;
   const f = modelFacts(p);
   if (f) {
     // Headers cached by an older version have no expert count: the tensor list still tells MoE apart.
     const isMoe = !!f.expertCount || (f.breakdown.moe?.some((b) => b > 0) ?? false);
-    const parts = [isMoe ? "MoE" : "Dense", `${f.nLayer} layers`];
+    const parts = [isMoe ? "MoE" : "Dense", `${transformerLayers(f)} layers`];
     if (isMoe && f.expertCount) parts.push(`${f.expertCount} experts${f.expertUsedCount ? ` (${f.expertUsedCount} active)` : ""}`);
     if (f.trainedCtx) parts.push(`max context ${ctxLabel(f.trainedCtx)}`);
     info.facts.textContent = parts.join(" · ");
@@ -517,12 +533,12 @@ function teardown() {
     c.mark.remove();
     c.button.querySelector(".lt-badge")?.remove();
     c.button.onmouseenter = c.button.onmouseleave = null;
-    c.button.classList.remove("lt-marked");
   }
   page.bar?.root.remove();
   page.bar?.info.root.remove();
   page.bar?.head?.classList.remove("lt-hw-head");
   page = null;
+  document.documentElement.classList.remove("lt-on");
 }
 
 /** A check that was running when the page was frozen continues after restore. */
@@ -555,8 +571,11 @@ window.addEventListener("pageshow", (e) => {
 function scan() {
   const repo = repoFromPath();
   if (page && page.repo !== repo) teardown();
+  const buttons = repo ? findChipButtons() : [];
+  // While the extension runs on a GGUF page, Hugging Face's own compatibility
+  // icons on the chips are hidden (content.css): only the bread marks show.
+  document.documentElement.classList.toggle("lt-on", buttons.length > 0);
   if (!repo) return;
-  const buttons = findChipButtons();
   if (buttons.length === 0) return;
 
   if (!page) {

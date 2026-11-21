@@ -9,6 +9,7 @@ import { KV_TYPE_UNITS, type FitPoint } from "../shared/fitParams";
 import { FIT_MARKS } from "../shared/fitLevel";
 import { ctxShort, fitGrade, fitGradeLabel, type FitGrade, type FitScale } from "../shared/fitGrade";
 import type { ModelFacts } from "./hfHeader";
+import { fileLayersLabel, mtpNote, offloadTotalNote } from "./layers";
 import type { MemoryPicture } from "./hardware";
 import type { Settings } from "./settings";
 import { ctxLabel } from "./settings";
@@ -161,18 +162,18 @@ export function evaluateFit(facts: ModelFacts, mem: MemoryPicture, s: Settings, 
   if (budget.ramFreeMib != null) details.push(`RAM: needs ${gb(sim.host_used_mib)} of ${gb(budget.ramFreeMib)} ${budget.ramFreeLabel}, keeping ${gb(budget.ramMarginMib)} free${budget.ramMarginNote}`);
   else details.push(`RAM: needs ${gb(sim.host_used_mib)}`);
   if (hasDevice) {
-    details.push(`Layers on the GPU: ${sim.layers_gpu} of ${sim.layers_total}${sim.overflow_layers > 0 ? `, experts of ${sim.overflow_layers} layers in RAM` : ""}`);
+    details.push(`Layers on the GPU: ${sim.layers_gpu} of ${sim.layers_total} (${offloadTotalNote(facts)})${sim.overflow_layers > 0 ? `, experts of ${sim.overflow_layers} layers in RAM` : ""}`);
   }
   details.push(`KV cache: ${gb(sim.kv_mib)} (f16) · compute buffer ${gb(sim.compute_mib)}`);
   details.push(`Context: ${ctx.toLocaleString("en-US")} tokens${ctxCapped ? ` (the model's maximum; you picked ${ctxLabel(s.ctx)})` : ""}`);
-  details.push(`File: ${gb(facts.totalBytes / 1048576)}${facts.shards.length > 1 ? ` in ${facts.shards.length} parts` : ""}, ${facts.nLayer} layers`);
+  details.push(`File: ${gb(facts.totalBytes / 1048576)}${facts.shards.length > 1 ? ` in ${facts.shards.length} parts` : ""}, ${fileLayersLabel(facts)}`);
 
   return {
     level,
     grade,
     scale,
     mark: level ? FIT_MARKS[level] : "⚠️",
-    headline: grade != null ? breadHeadline(scale, grade, sim, ctx, facts.trainedCtx) : headline(level, sim, mem),
+    headline: (grade != null ? breadHeadline(scale, grade, sim, ctx, facts.trainedCtx) : headline(level, sim, mem)) + mtpNote(facts),
     details,
     ctx,
     ctxCapped,
