@@ -11,7 +11,8 @@ import { deviceBudget, deviceInUseMib, evaluateFit, ramInUseMib, type FitAnswer 
 import { detectGpu, memoryPicture, type MemoryPicture, type RamReading } from "./hardware";
 import type { ModelFacts } from "./hfHeader";
 import { CTX_SLIDER_MAX, ctxFromSlider, ctxLabel, getGpu, getSettings, setSettings, sliderFromCtx, ticksHtml, type GpuInfo, type Settings } from "./settings";
-import { mapFiles } from "./fileMap";
+import { mapDraftFiles, mapFiles } from "./fileMap";
+import { HF_AUX_LABELS } from "../shared/hfAuxFiles";
 import { gradeSvg } from "../shared/breadMarks";
 
 /** Hugging Face's dark theme puts a "dark" class on <html>. */
@@ -59,7 +60,8 @@ interface Chip {
   button: HTMLElement;
   mark: HTMLSpanElement;
   file: string | null;
-  state: "idle" | "pending" | "done" | "error";
+  /** "skipped": an MTP head or DFlash/DSpark draft, not a model: no mark, no header read. */
+  state: "idle" | "pending" | "done" | "error" | "skipped";
   facts: ModelFacts | null;
   answer: FitAnswer | null;
   error: string | null;
@@ -121,10 +123,12 @@ function findChipButtons(): HTMLElement[] {
 }
 
 /** Hugging Face tags chips of files that are not a model by themselves with a
- * badge span before the quant name (<span>MTP</span> BF16 855 MB): an MTP
- * draft head, not the BF16 model. They are left alone. */
+ * badge span before the quant name (<span>MTP</span> BF16 855 MB, also DFLASH
+ * and DSPARK): an MTP head or a draft model, not the BF16 model. They are left
+ * alone, so only Hugging Face's own tooltip shows on them. */
+const AUX_BADGES = new Set([...HF_AUX_LABELS, "mmproj", "imatrix"].map((l) => l.toLowerCase()));
 function isAuxiliaryChip(btn: HTMLElement): boolean {
-  return [...btn.querySelectorAll("span")].some((s) => /^(MTP|mmproj|imatrix)$/i.test((s.textContent ?? "").trim()));
+  return [...btn.querySelectorAll("span")].some((s) => AUX_BADGES.has((s.textContent ?? "").trim().toLowerCase()));
 }
 
 function chipLabel(btn: HTMLElement): string {
@@ -156,7 +160,7 @@ function hideTip() {
 
 function renderChip(c: Chip) {
   const m = c.mark;
-  if (!page?.ready || c.state === "idle" || c.state === "pending") {
+  if (!page?.ready || c.state === "idle" || c.state === "pending" || c.state === "skipped") {
     m.remove();
     c.button.classList.remove("lt-marked");
     return;
@@ -237,15 +241,18 @@ function updateBar() {
   const p = page;
   const bar = p?.bar;
   if (!p || !bar) return;
-  const total = p.chips.length;
+  const total = p.chips.filter((c) => c.state !== "skipped").length;
   let text: string;
   let title: string;
   if (p.running) {
-    const done = p.chips.filter((c) => c.facts || c.state === "error").length;
+    const done = p.chips.filter((c) => c.state !== "skipped" && (c.facts || c.state === "error")).length;
     text = done < total ? `Toasting… read ${done} of ${total} quants` : "Toasting…";
     title = "Reading each quant's header from Hugging Face (only the header, a few MB)";
+  } else if (p.ready && p.armed && total === 0) {
+    text = "No standalone model in these files: nothing to check.";
+    title = "Every file here is an MTP head or a DFlash/DSpark draft model: it runs next to a model, not on its own.";
   } else if (p.ready && p.armed) {
-    const failed = p.chips.every((c) => c.state === "error");
+    const failed = p.chips.every((c) => c.state === "error" || c.state === "skipped");
     text = failed ? "Couldn't check these files. Click the toaster to try again." : "Checked for this machine. Click to check again.";
     title = "Hover a mark for the figures. Context and memory settings are under the LlamaToaster button in the toolbar.";
   } else {
@@ -393,12 +400,19 @@ async function ensureGpu() {
 async function mapChips(p: PageState): Promise<boolean> {
   const listing = await ask<{ sha: string | null; files: { path: string }[] }>({ type: "list", repo: p.repo });
   p.sha = listing.sha;
-  const map = mapFiles(p.chips.map((c) => c.label), listing.files.map((f) => f.path));
-  for (const c of p.chips) c.file = map.get(c.label) ?? null;
+  const labels = p.chips.map((c) => c.label);
+  const paths = listing.files.map((f) => f.path);
+  const map = mapFiles(labels, paths);
+  const drafts = mapDraftFiles(labels, paths);
+  for (const c of p.chips) {
+    c.file = map.get(c.label) ?? null;
+    if (!c.file && drafts.has(c.label)) c.state = "skipped";
+  }
   return true;
 }
 
 async function runChip(p: PageState, c: Chip, force: boolean, cacheOnly = false) {
+  if (c.state === "skipped") return;
   if (!c.file) {
     c.state = "error";
     c.error = "No matching .gguf file found in this repo";
@@ -422,7 +436,7 @@ async function calculate() {
   if (!p || p.running) return;
   p.armed = true;
   p.running = true;
-  const queue = p.chips.filter((c) => !c.facts);
+  const queue = p.chips.filter((c) => !c.facts && c.state !== "skipped");
   // Checking again with every header known keeps the marks up meanwhile.
   if (queue.length) p.ready = false;
   for (const c of queue) c.state = "pending";
