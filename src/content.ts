@@ -11,8 +11,8 @@ import { deviceBudget, deviceInUseMib, evaluateFit, ramInUseMib, type FitAnswer 
 import { detectGpu, memoryPicture, type MemoryPicture, type RamReading } from "./hardware";
 import type { ModelFacts } from "./hfHeader";
 import { CTX_SLIDER_MAX, ctxFromSlider, ctxLabel, getGpu, getSettings, setSettings, sliderFromCtx, ticksHtml, type GpuInfo, type Settings } from "./settings";
-import { mapDraftFiles, mapFiles } from "./fileMap";
-import { HF_AUX_LABELS } from "../shared/hfAuxFiles";
+import { mapChipFiles } from "./fileMap";
+import { HF_AUX_LABELS, type AuxTag } from "../shared/hfAuxFiles";
 import { gradeSvg } from "../shared/breadMarks";
 
 /** Hugging Face's dark theme puts a "dark" class on <html>. */
@@ -60,7 +60,7 @@ interface Chip {
   button: HTMLElement;
   mark: HTMLSpanElement;
   file: string | null;
-  /** "skipped": an MTP head or DFlash/DSpark draft, not a model: no mark, no header read. */
+  /** "skipped": an MTP head or a DFlash/DSpark/EAGLE3 draft, not a model: no mark, no header read. */
   state: "idle" | "pending" | "done" | "error" | "skipped";
   facts: ModelFacts | null;
   answer: FitAnswer | null;
@@ -71,6 +71,8 @@ interface Chip {
 interface PageState {
   repo: string;
   sha: string | null;
+  /** The repo's file list, asked for once per page. */
+  listing: Promise<Listing> | null;
   chips: Chip[];
   running: boolean;
   /** Marks are shown only once every chip has an answer. */
@@ -132,7 +134,23 @@ function isAuxiliaryChip(btn: HTMLElement): boolean {
 }
 
 function chipLabel(btn: HTMLElement): string {
-  return (btn.querySelector("span:not(.lt-mark)")?.textContent ?? "").trim();
+  return (btn.querySelector("span:not(.lt-mark):not(.lt-badge)")?.textContent ?? "").trim();
+}
+
+/** Hugging Face puts no badge on an EAGLE3 draft, nor on any chip of a repo of
+ * drafts only: ours goes there, in Hugging Face's own badge style and words. */
+const HF_BADGE_CLASSES = "lt-badge flex h-[13px] items-center rounded-[3px] border border-gray-200 px-[3px] text-[10px] font-semibold leading-none text-gray-500 dark:border-gray-700 dark:text-gray-400";
+function badgeChip(c: Chip, tag: AuxTag) {
+  let badge = c.button.querySelector<HTMLSpanElement>(".lt-badge");
+  if (!badge) {
+    badge = Object.assign(document.createElement("span"), { className: HF_BADGE_CLASSES });
+    c.button.insertBefore(badge, c.button.firstChild);
+  }
+  badge.textContent = tag.label;
+  badge.dataset.tip = tag.tooltip;
+  const shown = badge;
+  c.button.onmouseenter = () => showTip(shown);
+  c.button.onmouseleave = hideTip;
 }
 
 // ---------------------------------------------------------------- marks
@@ -248,9 +266,9 @@ function updateBar() {
     const done = p.chips.filter((c) => c.state !== "skipped" && (c.facts || c.state === "error")).length;
     text = done < total ? `Toasting… read ${done} of ${total} quants` : "Toasting…";
     title = "Reading each quant's header from Hugging Face (only the header, a few MB)";
-  } else if (p.ready && p.armed && total === 0) {
+  } else if (p.chips.length > 0 && total === 0) {
     text = "No standalone model in these files: nothing to check.";
-    title = "Every file here is an MTP head or a DFlash/DSpark draft model: it runs next to a model, not on its own.";
+    title = "Every file here is an MTP head or a DFlash, DSpark or EAGLE3 draft model: it runs next to a model, not on its own.";
   } else if (p.ready && p.armed) {
     const failed = p.chips.every((c) => c.state === "error" || c.state === "skipped");
     text = failed ? "Couldn't check these files. Click the toaster to try again." : "Checked for this machine. Click to check again.";
@@ -397,16 +415,30 @@ async function ensureGpu() {
   }
 }
 
+interface Listing {
+  sha: string | null;
+  files: { path: string; size: number | null }[];
+}
+
+function repoListing(p: PageState): Promise<Listing> {
+  p.listing ??= ask<Listing>({ type: "list", repo: p.repo }).catch((err) => {
+    p.listing = null;
+    throw err;
+  });
+  return p.listing;
+}
+
 async function mapChips(p: PageState): Promise<boolean> {
-  const listing = await ask<{ sha: string | null; files: { path: string }[] }>({ type: "list", repo: p.repo });
+  const listing = await repoListing(p);
   p.sha = listing.sha;
-  const labels = p.chips.map((c) => c.label);
-  const paths = listing.files.map((f) => f.path);
-  const map = mapFiles(labels, paths);
-  const drafts = mapDraftFiles(labels, paths);
+  const { models, drafts } = mapChipFiles(p.chips.map((c) => c.label), listing.files);
   for (const c of p.chips) {
-    c.file = map.get(c.label) ?? null;
-    if (!c.file && drafts.has(c.label)) c.state = "skipped";
+    c.file = models.get(c.label) ?? null;
+    const tag = c.file ? undefined : drafts.get(c.label);
+    if (!tag) continue;
+    c.state = "skipped";
+    badgeChip(c, tag);
+    renderChip(c);
   }
   return true;
 }
@@ -483,6 +515,8 @@ function teardown() {
   hideTip();
   for (const c of page.chips) {
     c.mark.remove();
+    c.button.querySelector(".lt-badge")?.remove();
+    c.button.onmouseenter = c.button.onmouseleave = null;
     c.button.classList.remove("lt-marked");
   }
   page.bar?.root.remove();
@@ -526,7 +560,7 @@ function scan() {
   if (buttons.length === 0) return;
 
   if (!page) {
-    page = { repo, sha: null, chips: [], running: false, ready: false, armed: resumeArmed, inUseAtStartMib: null, ramInUseAtStartMib: null, bar: null };
+    page = { repo, sha: null, listing: null, chips: [], running: false, ready: false, armed: resumeArmed, inUseAtStartMib: null, ramInUseAtStartMib: null, bar: null };
     resumeArmed = false;
   }
   let added = false;
@@ -541,6 +575,11 @@ function scan() {
   for (const c of page.chips) if (c.state === "done" || c.state === "error") renderChip(c);
   // Hugging Face re-renders can drop the toaster: put it back.
   if (!page.bar?.root.isConnected || !page.bar.info.root.isConnected || (page.bar.head && !page.bar.head.classList.contains("lt-hw-head"))) installBar(page);
+  // Drafts get their badge straight away: one file list, no header read.
+  if (added) {
+    const p = page;
+    void mapChips(p).then(() => updateBar(), () => undefined);
+  }
   if (added && !page.running && (page.armed || settings.mode === "auto")) void calculate();
   else if (added) updateBar();
 }
