@@ -31,7 +31,9 @@ chrome.runtime.onStartup.addListener(() => void applyDock());
 chrome.runtime.onInstalled.addListener(() => void applyDock());
 void applyDock();
 
-const FACTS_VERSION = 1;
+// Bumped when ModelFacts gained mtpLayers: an entry cached without it would read
+// as "no MTP head" for a quant that keeps one.
+const FACTS_VERSION = 2;
 const MAX_CACHED = 400;
 
 interface CachedFacts {

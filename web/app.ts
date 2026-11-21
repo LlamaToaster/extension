@@ -8,6 +8,7 @@
 // GPU name is detected from WebGL and looked up in the same table.
 
 import { readModelFacts, type ModelFacts } from "../src/hfHeader";
+import { transformerLayers } from "../src/layers";
 import { evaluateFit, memoryScale, deviceBudget } from "../src/fit";
 import { detectGpu, lookupVramMib, looksUnified, memoryPicture, type MemoryPicture } from "../src/hardware";
 import { CTX_SLIDER_MAX, DEFAULT_SETTINGS, ctxFromSlider, ctxLabel, sliderFromCtx, ticksHtml, type GpuInfo, type Settings } from "../src/settings";
@@ -213,7 +214,7 @@ function render() {
   $("ctxValue").textContent = ctxLabel(prefs.ctx);
   const first = rows.find((r) => r.facts)?.facts;
   $("modelNote").textContent = first
-    ? `${first.expertCount ? "MoE" : "Dense"} · ${first.nLayer} layers${first.trainedCtx ? ` · max context ${ctxLabel(first.trainedCtx)}` : ""}${first.trainedCtx && prefs.ctx > first.trainedCtx ? " (your context is capped at it)" : ""}`
+    ? `${first.expertCount ? "MoE" : "Dense"} · ${transformerLayers(first)} layers${first.trainedCtx ? ` · max context ${ctxLabel(first.trainedCtx)}` : ""}${first.trainedCtx && prefs.ctx > first.trainedCtx ? " (your context is capped at it)" : ""}`
     : "";
   $("progress").textContent = loadingNote;
 

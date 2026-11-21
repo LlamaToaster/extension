@@ -1,8 +1,9 @@
-/* LlamaToaster marks on Hugging Face's GGUF quant chips. Hugging Face's own
-   check/cross icons are removed while ours is there. */
-.lt-marked svg { display: none !important; }
+/* LlamaToaster marks on Hugging Face's GGUF quant chips. While the extension
+   runs on a GGUF page (content.ts sets html.lt-on), Hugging Face's own
+   compatibility icons are removed from the chips altogether. */
+.lt-on div[class*="group/gguf"] button svg { display: none !important; }
 /* ...but not the bread mark itself (more specific, so it wins). */
-.lt-marked .lt-mark svg { display: block !important; }
+.lt-on div[class*="group/gguf"] button .lt-mark svg { display: block !important; }
 .lt-mark {
   display: inline-flex;
   align-items: center;
@@ -16,14 +17,14 @@
 .lt-tip {
   position: absolute;
   z-index: 2147483647;
-  max-width: 240px;
+  max-width: 480px;
   padding: 6px 10px;
   border-radius: 8px;
   background: #000;
   color: #fff;
   font: 500 13px/1.35 "Source Sans Pro", ui-sans-serif, system-ui, sans-serif;
   pointer-events: none;
-  white-space: normal;
+  white-space: pre-line;
 }
 .lt-tip::after {
   content: "";
@@ -80,6 +81,20 @@
 .lt-info-facts.lt-empty { color: var(--lt-ink-2); }
 .lt-info-ctx { display: flex; justify-content: flex-end; align-items: baseline; gap: 0.3em; margin-top: 2px; color: var(--lt-ink-2); }
 .lt-info-v { font-variant-numeric: tabular-nums; }
+/* "More details": a quiet text toggle in the page's own grey, not a native
+   blue checkbox. */
+.lt-info-more { display: inline-flex; align-items: center; gap: 0.4em; margin-right: auto; color: var(--lt-ink-2); cursor: pointer; user-select: none; }
+.lt-info-more:hover { color: var(--lt-ink); }
+.lt-info-more input {
+  -webkit-appearance: none; appearance: none; flex: none;
+  width: 12px; height: 12px; margin: 0; border: 1px solid currentColor; border-radius: 3px;
+  background: transparent; cursor: pointer; outline: none; box-shadow: none; display: grid; place-content: center;
+}
+.lt-info-more input::after { content: ""; width: 6px; height: 6px; border-radius: 1px; background: var(--lt-val); transform: scale(0); transition: transform 0.12s ease; }
+.lt-info-more input:checked { border-color: var(--lt-val); }
+.lt-info-more input:checked::after { transform: scale(1); }
+.lt-info-more input:focus, .lt-info-more input:focus-visible { outline: none; box-shadow: none; }
+.lt-info-more:has(input:focus-visible) { text-decoration: underline dotted; }
 .lt-range { --frac: 0; -webkit-appearance: none; appearance: none; display: block; width: 100%; height: 22px; margin: 2px 0 0; background: transparent; }
 /* Unknown max context: grey and locked; becoming enabled fades to the orange coil. */
 .lt-range::-webkit-slider-runnable-track, .lt-range::-webkit-slider-thumb { transition: filter 0.35s ease-out, opacity 0.35s ease-out; }

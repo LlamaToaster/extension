@@ -24,7 +24,10 @@ export interface ModelFacts {
   /** What reading the headers cost, bytes. */
   fetchedBytes: number;
   architecture: string | null;
+  /** GGUF block_count: every block, the MTP head included when the file keeps one (see layers.ts). */
   nLayer: number;
+  /** GGUF nextn_predict_layers: the MTP head blocks at the end; null when the key is absent. */
+  mtpLayers: number | null;
   trainedCtx: number | null;
   /** Routed experts and how many each token uses; null for a dense model. */
   expertCount: number | null;
@@ -275,6 +278,7 @@ export async function readModelFacts(
     fetchedBytes: fetched,
     architecture: first.walk.architecture,
     nLayer: info.n_layer,
+    mtpLayers: info.mtp_layers,
     trainedCtx: info.trained_ctx,
     expertCount: info.expert_count ?? (breakdown.moe?.some((b) => b > 0) ? 0 : null),
     expertUsedCount: info.expert_used_count,

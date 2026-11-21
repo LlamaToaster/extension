@@ -410,8 +410,9 @@ header h1.wordmark img { width: auto; height: 30px; border-radius: 0; }
 #legendSec { border-bottom: 0; }
 
 .whatif-on { position: relative; font-size: 12px; color: var(--muted); display: flex; align-items: center; gap: 6px; cursor: pointer; }
+.more-on { position: relative; font-size: 12px; color: var(--muted); display: flex; align-items: center; gap: 6px; cursor: pointer; width: fit-content; margin: 8px 0 0 auto; }
 /* A hover popup that says what What if is, on the checkbox and on the title once it is on. */
-.whatif-on[data-tip]::after, #memTitle[data-tip]::after {
+.whatif-on[data-tip]::after, .more-on[data-tip]::after, #memTitle[data-tip]::after {
   content: attr(data-tip);
   position: absolute; top: calc(100% + 6px); right: 0; z-index: 10;
   width: max-content; max-width: 250px;
@@ -424,7 +425,7 @@ header h1.wordmark img { width: auto; height: 30px; border-radius: 0; }
 }
 #memTitle[data-tip] { position: relative; cursor: help; }
 #memTitle[data-tip]::after { right: auto; left: 0; }
-.whatif-on[data-tip]:hover::after, #memTitle[data-tip]:hover::after { opacity: 1; visibility: visible; transition-delay: 0.25s; }
+.whatif-on[data-tip]:hover::after, .more-on[data-tip]:hover::after, #memTitle[data-tip]:hover::after { opacity: 1; visibility: visible; transition-delay: 0.25s; }
 .whatif-max { margin-top: 0; font-size: 11px; display: flex; justify-content: space-between; }
 
 #memory:not(.whatif) .wi, #memory.whatif .real { display: none !important; }
@@ -436,8 +437,12 @@ header h1.wordmark img { width: auto; height: 30px; border-radius: 0; }
 .wi-real { flex: 0 0 50%; margin: 0; height: 100%; box-sizing: border-box; }
 .wi-real.empty { background: var(--well); }
 .wi-proj { flex: 1; position: relative; box-sizing: border-box; border: 1px solid var(--border); border-left: 0; background: linear-gradient(to right, var(--wi-proj), var(--bg)); }
-.whatif-on input[type=checkbox] { -webkit-appearance: none; appearance: none; width: 14px; height: 14px; margin: 0; box-sizing: border-box; flex: none; background: var(--well); border: 1px solid var(--border-strong); border-radius: 2px; position: relative; cursor: pointer; }
-.whatif-on input[type=checkbox]:checked::after { content: ""; position: absolute; left: 50%; top: 45%; width: 3px; height: 7px; box-sizing: border-box; border: solid var(--muted); border-width: 0 1.5px 1.5px 0; transform: translate(-50%, -50%) rotate(45deg); }
+.whatif-on input[type=checkbox], .more-on input[type=checkbox] { -webkit-appearance: none; appearance: none; width: 14px; height: 14px; margin: 0; box-sizing: border-box; flex: none; background: var(--well); border: 1px solid var(--border-strong); border-radius: 2px; position: relative; cursor: pointer; }
+.whatif-on input[type=checkbox], .more-on input[type=checkbox] { display: grid; place-content: center; }
+.whatif-on input[type=checkbox]::after, .more-on input[type=checkbox]::after { content: ""; width: 6px; height: 6px; border-radius: 1px; background: var(--ctx-val); transform: scale(0); transition: transform 0.12s ease; }
+.whatif-on input[type=checkbox]:checked, .more-on input[type=checkbox]:checked { border-color: var(--ctx-val); }
+.whatif-on input[type=checkbox]:checked::after, .more-on input[type=checkbox]:checked::after { transform: scale(1); }
+.whatif-on input[type=checkbox]:focus, .more-on input[type=checkbox]:focus { outline: none; }
 
 /* One layout for both themes: flat full-width sections split by a rule
    (no cards: the popup is small and the notice, bars and slider already
@@ -452,5 +457,8 @@ input[type="number"] { border-radius: 6px; border-color: var(--border-strong); }
 button.primary, button.ghost { border-radius: 8px; }
 button.ghost:hover { background: var(--ghost-hover); }
 .pill { border-radius: 6px; }
-.toggle-label[data-tip]::after, .whatif-on[data-tip]::after, #memTitle[data-tip]::after { border-radius: 8px; }
+.toggle-label[data-tip]::after, .whatif-on[data-tip]::after, .more-on[data-tip]::after, #memTitle[data-tip]::after { border-radius: 8px; }
 ::picker(select) { border: 1px solid var(--border); border-radius: 8px; }
+/* "What if" and "More details" sit right-aligned one under the other; the same
+   width keeps their boxes in one column. */
+.whatif-on, .more-on { box-sizing: border-box; width: 8em; justify-content: flex-start; white-space: nowrap; }
