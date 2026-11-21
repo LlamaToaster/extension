@@ -13,7 +13,8 @@ import type { ModelFacts } from "./hfHeader";
 import { transformerLayers } from "./layers";
 import { tipText } from "./tooltip";
 import { CTX_SLIDER_MAX, ctxFromSlider, ctxLabel, getGpu, getSettings, setSettings, sliderFromCtx, ticksHtml, type GpuInfo, type Settings } from "./settings";
-import { mapFiles } from "./fileMap";
+import { mapChipFiles } from "./fileMap";
+import { HF_AUX_LABELS, type AuxTag } from "../shared/hfAuxFiles";
 import { gradeSvg } from "../shared/breadMarks";
 
 /** Hugging Face's dark theme puts a "dark" class on <html>. */
@@ -61,7 +62,8 @@ interface Chip {
   button: HTMLElement;
   mark: HTMLSpanElement;
   file: string | null;
-  state: "idle" | "pending" | "done" | "error";
+  /** "skipped": an MTP head or a DFlash/DSpark/EAGLE3 draft, not a model: no mark, no header read. */
+  state: "idle" | "pending" | "done" | "error" | "skipped";
   facts: ModelFacts | null;
   answer: FitAnswer | null;
   error: string | null;
@@ -71,6 +73,8 @@ interface Chip {
 interface PageState {
   repo: string;
   sha: string | null;
+  /** The repo's file list, asked for once per page. */
+  listing: Promise<Listing> | null;
   chips: Chip[];
   running: boolean;
   /** Marks are shown only once every chip has an answer. */
@@ -125,14 +129,32 @@ function findChipButtons(): HTMLElement[] {
 }
 
 /** Hugging Face tags chips of files that are not a model by themselves with a
- * badge span before the quant name (<span>MTP</span> BF16 855 MB): an MTP
- * draft head, not the BF16 model. They are left alone. */
+ * badge span before the quant name (<span>MTP</span> BF16 855 MB, also DFLASH
+ * and DSPARK): an MTP head or a draft model, not the BF16 model. They are left
+ * alone, so only Hugging Face's own tooltip shows on them. */
+const AUX_BADGES = new Set([...HF_AUX_LABELS, "mmproj", "imatrix"].map((l) => l.toLowerCase()));
 function isAuxiliaryChip(btn: HTMLElement): boolean {
-  return [...btn.querySelectorAll("span")].some((s) => /^(MTP|mmproj|imatrix)$/i.test((s.textContent ?? "").trim()));
+  return [...btn.querySelectorAll("span")].some((s) => AUX_BADGES.has((s.textContent ?? "").trim().toLowerCase()));
 }
 
 function chipLabel(btn: HTMLElement): string {
-  return (btn.querySelector("span:not(.lt-mark)")?.textContent ?? "").trim();
+  return (btn.querySelector("span:not(.lt-mark):not(.lt-badge)")?.textContent ?? "").trim();
+}
+
+/** Hugging Face puts no badge on an EAGLE3 draft, nor on any chip of a repo of
+ * drafts only: ours goes there, in Hugging Face's own badge style and words. */
+const HF_BADGE_CLASSES = "lt-badge flex h-[13px] items-center rounded-[3px] border border-gray-200 px-[3px] text-[10px] font-semibold leading-none text-gray-500 dark:border-gray-700 dark:text-gray-400";
+function badgeChip(c: Chip, tag: AuxTag) {
+  let badge = c.button.querySelector<HTMLSpanElement>(".lt-badge");
+  if (!badge) {
+    badge = Object.assign(document.createElement("span"), { className: HF_BADGE_CLASSES });
+    c.button.insertBefore(badge, c.button.firstChild);
+  }
+  badge.textContent = tag.label;
+  badge.dataset.tip = tag.tooltip;
+  const shown = badge;
+  c.button.onmouseenter = () => showTip(shown);
+  c.button.onmouseleave = hideTip;
 }
 
 // ---------------------------------------------------------------- marks
@@ -160,7 +182,7 @@ function hideTip() {
 
 function renderChip(c: Chip) {
   const m = c.mark;
-  if (!page?.ready || c.state === "idle" || c.state === "pending") {
+  if (!page?.ready || c.state === "idle" || c.state === "pending" || c.state === "skipped") {
     m.remove();
     return;
   }
@@ -239,15 +261,18 @@ function updateBar() {
   const p = page;
   const bar = p?.bar;
   if (!p || !bar) return;
-  const total = p.chips.length;
+  const total = p.chips.filter((c) => c.state !== "skipped").length;
   let text: string;
   let title: string;
   if (p.running) {
-    const done = p.chips.filter((c) => c.facts || c.state === "error").length;
+    const done = p.chips.filter((c) => c.state !== "skipped" && (c.facts || c.state === "error")).length;
     text = done < total ? `Toasting… read ${done} of ${total} quants` : "Toasting…";
     title = "Reading each quant's header from Hugging Face (only the header, a few MB)";
+  } else if (p.chips.length > 0 && total === 0) {
+    text = "No standalone model in these files: nothing to check.";
+    title = "Every file here is an MTP head or a DFlash, DSpark or EAGLE3 draft model: it runs next to a model, not on its own.";
   } else if (p.ready && p.armed) {
-    const failed = p.chips.every((c) => c.state === "error");
+    const failed = p.chips.every((c) => c.state === "error" || c.state === "skipped");
     text = failed ? "Couldn't check these files. Click the toaster to try again." : "Checked for this machine. Click to check again.";
     title = "Hover a mark for the figures. Context and memory settings are under the LlamaToaster button in the toolbar.";
   } else {
@@ -406,15 +431,36 @@ async function ensureGpu() {
   }
 }
 
+interface Listing {
+  sha: string | null;
+  files: { path: string; size: number | null }[];
+}
+
+function repoListing(p: PageState): Promise<Listing> {
+  p.listing ??= ask<Listing>({ type: "list", repo: p.repo }).catch((err) => {
+    p.listing = null;
+    throw err;
+  });
+  return p.listing;
+}
+
 async function mapChips(p: PageState): Promise<boolean> {
-  const listing = await ask<{ sha: string | null; files: { path: string }[] }>({ type: "list", repo: p.repo });
+  const listing = await repoListing(p);
   p.sha = listing.sha;
-  const map = mapFiles(p.chips.map((c) => c.label), listing.files.map((f) => f.path));
-  for (const c of p.chips) c.file = map.get(c.label) ?? null;
+  const { models, drafts } = mapChipFiles(p.chips.map((c) => c.label), listing.files);
+  for (const c of p.chips) {
+    c.file = models.get(c.label) ?? null;
+    const tag = c.file ? undefined : drafts.get(c.label);
+    if (!tag) continue;
+    c.state = "skipped";
+    badgeChip(c, tag);
+    renderChip(c);
+  }
   return true;
 }
 
 async function runChip(p: PageState, c: Chip, force: boolean, cacheOnly = false) {
+  if (c.state === "skipped") return;
   if (!c.file) {
     c.state = "error";
     c.error = "No matching .gguf file found in this repo";
@@ -438,7 +484,7 @@ async function calculate() {
   if (!p || p.running) return;
   p.armed = true;
   p.running = true;
-  const queue = p.chips.filter((c) => !c.facts);
+  const queue = p.chips.filter((c) => !c.facts && c.state !== "skipped");
   // Checking again with every header known keeps the marks up meanwhile.
   if (queue.length) p.ready = false;
   for (const c of queue) c.state = "pending";
@@ -483,7 +529,11 @@ async function calculate() {
 function teardown() {
   if (!page) return;
   hideTip();
-  for (const c of page.chips) c.mark.remove();
+  for (const c of page.chips) {
+    c.mark.remove();
+    c.button.querySelector(".lt-badge")?.remove();
+    c.button.onmouseenter = c.button.onmouseleave = null;
+  }
   page.bar?.root.remove();
   page.bar?.info.root.remove();
   page.bar?.head?.classList.remove("lt-hw-head");
@@ -529,7 +579,7 @@ function scan() {
   if (buttons.length === 0) return;
 
   if (!page) {
-    page = { repo, sha: null, chips: [], running: false, ready: false, armed: resumeArmed, inUseAtStartMib: null, ramInUseAtStartMib: null, bar: null };
+    page = { repo, sha: null, listing: null, chips: [], running: false, ready: false, armed: resumeArmed, inUseAtStartMib: null, ramInUseAtStartMib: null, bar: null };
     resumeArmed = false;
   }
   let added = false;
@@ -544,6 +594,11 @@ function scan() {
   for (const c of page.chips) if (c.state === "done" || c.state === "error") renderChip(c);
   // Hugging Face re-renders can drop the toaster: put it back.
   if (!page.bar?.root.isConnected || !page.bar.info.root.isConnected || (page.bar.head && !page.bar.head.classList.contains("lt-hw-head"))) installBar(page);
+  // Drafts get their badge straight away: one file list, no header read.
+  if (added) {
+    const p = page;
+    void mapChips(p).then(() => updateBar(), () => undefined);
+  }
   if (added && !page.running && (page.armed || settings.mode === "auto")) void calculate();
   else if (added) updateBar();
 }
