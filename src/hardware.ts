@@ -123,7 +123,10 @@ export async function detectGpu(): Promise<GpuInfo> {
     }
   }
   const name = renderer ? cleanRendererName(renderer) : description;
-  if (name && /SwiftShader|llvmpipe|Software|Basic Render/i.test(name)) noGpu = true;
+  // A software renderer means Chrome has lost its GPU (it draws on Microsoft's
+  // Basic Render Driver or SwiftShader). That is not "no GPU" for the machine.
+  const softwareRenderer = !!name && /SwiftShader|llvmpipe|Software|Basic Render/i.test(name);
+  if (softwareRenderer) noGpu = true;
   if (!renderer && noGpu === false && !vendor) noGpu = true;
   return {
     name,
@@ -132,6 +135,7 @@ export async function detectGpu(): Promise<GpuInfo> {
     tableVramMib: lookupVramMib(name),
     unified: looksUnified(name, vendor),
     noGpu,
+    softwareRenderer,
     detectedAt: Date.now(),
   };
 }

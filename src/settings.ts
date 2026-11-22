@@ -13,6 +13,8 @@ export interface GpuInfo {
   unified: boolean;
   /** WebGPU is unavailable or only a software adapter answered. */
   noGpu: boolean;
+  /** WebGL names a software renderer: Chrome has lost its GPU and draws without it. */
+  softwareRenderer?: boolean;
   detectedAt: number;
 }
 
