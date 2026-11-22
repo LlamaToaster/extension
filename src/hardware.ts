@@ -103,19 +103,24 @@ export async function detectGpu(): Promise<GpuInfo> {
   let architecture: string | null = null;
   let description: string | null = null;
   let noGpu = false;
-  try {
-    const gpu = (navigator as Navigator & { gpu?: GPU }).gpu;
-    const adapter = gpu ? await gpu.requestAdapter(/Windows/.test(navigator.userAgent) ? undefined : { powerPreference: "high-performance" }) : null;
-    if (!adapter) noGpu = true;
-    else {
-      const info = adapter.info;
-      vendor = info?.vendor || null;
-      architecture = info?.architecture || null;
-      description = info?.description || null;
-      if ((info as GPUAdapterInfo & { isFallbackAdapter?: boolean })?.isFallbackAdapter) noGpu = true;
+  // WebGL already names the card, so WebGPU is asked only when WebGL gave
+  // nothing. Chrome writes "No available adapters." to the extension's Errors
+  // list whenever a page asks and no adapter answers, even though it is caught.
+  if (!renderer) {
+    try {
+      const gpu = (navigator as Navigator & { gpu?: GPU }).gpu;
+      const adapter = gpu ? await gpu.requestAdapter(/Windows/.test(navigator.userAgent) ? undefined : { powerPreference: "high-performance" }) : null;
+      if (!adapter) noGpu = true;
+      else {
+        const info = adapter.info;
+        vendor = info?.vendor || null;
+        architecture = info?.architecture || null;
+        description = info?.description || null;
+        if ((info as GPUAdapterInfo & { isFallbackAdapter?: boolean })?.isFallbackAdapter) noGpu = true;
+      }
+    } catch {
+      // No WebGPU: fall back on WebGL alone.
     }
-  } catch {
-    // No WebGPU: fall back on WebGL alone.
   }
   const name = renderer ? cleanRendererName(renderer) : description;
   if (name && /SwiftShader|llvmpipe|Software|Basic Render/i.test(name)) noGpu = true;
