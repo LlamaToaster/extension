@@ -108,7 +108,10 @@ async function renderMemory() {
   if (ram) setBar("ramBar", llamaRam, ram.totalMib - ram.availableMib - llamaRam, ram.totalMib, barApps(helperRes?.ok ? helperRes.reading.topRam : null, APP_MIN_MIB.ram));
 
   // GPU: name · VRAM size (or the memory kind when there is no own VRAM).
-  const name = helper?.name ?? (gpu?.noGpu ? "none found" : gpu?.name ?? "unknown");
+  // Without the helper, a software renderer means Chrome lost its GPU: say how to get it back.
+  const chromeNoGpu = !helper && !!gpu?.softwareRenderer;
+  const name = helper?.name ?? (chromeNoGpu ? "none found · restart Chrome" : gpu?.noGpu ? "none found" : gpu?.name ?? "unknown");
+  $("gpu").title = chromeNoGpu ? "Chrome is drawing without its GPU. Restart Chrome; if it stays this way, update the GPU driver. Installing the LlamaToaster worker reads the card directly." : "";
   const vram = vramSize(mem);
   if (mem.kind === "vram" && vram != null) parts("gpu", `${name} · ${size(vram)}`);
   else parts("gpu", mem.kind === "cpu" ? name : mem.kind === "unified" ? `${name} · shared RAM` : `${name} · VRAM size unknown`);
