@@ -59,12 +59,12 @@ The KV cache is sized as **f16**, and the context is capped at the model's own m
 
 ## What a browser can't see
 
-- **Free VRAM.** No browser API reports VRAM (unless a worker is installed, see below). The total comes from a table of known cards (override it in the popup; a GPU not in the table asks for the size). Without a worker, "available" is the whole card.
+- **Free VRAM.** No browser API reports how much VRAM is free. The card's total is read automatically from WebGPU's memory heaps when Chrome's "WebGPU Developer Features" flag is on (`chrome://flags` or `brave://flags`). The order is: the LlamaToaster worker's measured total, then that browser reading, then the GPU your Hugging Face hardware settings list (read when you are signed in to Hugging Face and open one of its pages), then a size you type. Every size is remembered per GPU, so it is still there when its source is gone. While the size is still unknown, hovering the field shows three ways to get it: install the worker, turn on the flag, or pick your hardware on Hugging Face (the size is read the next time you open a Hugging Face page). The free figure comes only from the LlamaToaster worker's local helper (see below). Without it, "available" is the whole card.
 - **Unified memory** is detected from the GPU name: Apple, Intel iGPU, Radeon integrated graphics. Apple silicon gets about 3/4 of RAM, like Metal's working-set budget. Override the memory type in the popup.
 
 ## Measured VRAM through the worker
 
-Chrome reads VRAM internally but gives extensions no way to get it. A LlamaToaster worker on the same machine fills the gap: its installer and updater register [`worker/chrome-host/`](https://github.com/LlamaToaster/LlamaToaster/tree/main/worker/chrome-host) (in the app repo) as a Chrome native-messaging host, and Chrome starts it on demand whenever the extension asks. The worker service doesn't have to be running, and the order doesn't matter (worker first or extension first). A worker installed before this existed picks it up on its next update.
+Chrome reads VRAM internally, and with the "WebGPU Developer Features" flag it gives the card's total (see above) but not what other apps use. A LlamaToaster worker on the same machine fills the gap: its installer and updater register [`worker/chrome-host/`](https://github.com/LlamaToaster/LlamaToaster/tree/main/worker/chrome-host) (in the app repo) as a Chrome native-messaging host, and Chrome starts it on demand whenever the extension asks. The worker service doesn't have to be running, and the order doesn't matter (worker first or extension first). A worker installed before this existed picks it up on its next update.
 
 | OS | Source | GPUs |
 |---|---|---|
