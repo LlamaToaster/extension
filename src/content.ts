@@ -47,6 +47,18 @@ function getPort(): chrome.runtime.Port {
   return port;
 }
 
+// Leaving the page can freeze it in the back/forward cache, which closes the port from under it and makes Chrome
+// log "The page keeping the extension port is moved into back/forward cache". Close it ourselves first; the next
+// request (after the page is shown again) opens a new one. disconnect() doesn't fire onDisconnect here, so reset by hand.
+window.addEventListener("pagehide", () => {
+  if (!port) return;
+  const p = port;
+  port = null;
+  p.disconnect();
+  for (const w of waiting.values()) w.reject(new Error("The page was left; try again"));
+  waiting.clear();
+});
+
 function ask<T>(msg: Record<string, unknown>, progress?: (p: any) => void): Promise<T> {
   const id = nextId++;
   return new Promise<T>((resolve, reject) => {
