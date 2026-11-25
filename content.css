@@ -25,6 +25,8 @@
   font: 500 13px/1.35 "Source Sans Pro", ui-sans-serif, system-ui, sans-serif;
   pointer-events: none;
   white-space: pre-line;
+  /* A long unbroken word (a file name, a path) wraps instead of running out of the box. */
+  overflow-wrap: break-word;
 }
 .lt-tip::after {
   content: "";

@@ -4,40 +4,17 @@ import { isFastUnified } from "../shared/fitGrade";
 //
 // RAM: chrome.system.memory gives the real total and available figures.
 // GPU: WebGL's unmasked renderer string names the card; WebGPU says the
-// vendor and whether a real adapter exists. No browser API reports VRAM size
-// or how much of it is free, so the total comes from a table of known cards
-// (the user can override it). Without a worker nothing reads what other apps
-// hold, so the whole card counts as available.
+// vendor and whether a real adapter exists. With Chrome's "WebGPU Developer
+// Features" flag on, WebGPU's adapter info also gives the card's own memory
+// (the device-local heap, see vramFromHeaps) and its type. How much of that
+// memory is free is not reported by any browser API: only the worker's native
+// helper reads it (see helper.ts). Without a helper the whole card counts as
+// available. Without a browser total either, the size comes from the store of
+// remembered sizes (vramMemory.ts): a worker or browser reading from before, the
+// user's Hugging Face profile, or the size the user typed.
 
 import type { GpuInfo, Settings } from "./settings";
-
-const MIB_PER_GB = 1024;
-
-// Most specific first: "4070 Ti Super" must match before "4070 Ti" and "4070".
-const VRAM_TABLE: [RegExp, number][] = [
-  // NVIDIA laptop parts (differ from their desktop namesakes)
-  [/RTX\s*5090.*Laptop/i, 24], [/RTX\s*5080.*Laptop/i, 16], [/RTX\s*5070\s*Ti.*Laptop/i, 12], [/RTX\s*5070.*Laptop/i, 8],
-  [/RTX\s*4090.*Laptop/i, 16], [/RTX\s*4080.*Laptop/i, 12], [/RTX\s*4070.*Laptop/i, 8], [/RTX\s*4060.*Laptop/i, 8], [/RTX\s*4050.*Laptop/i, 6],
-  [/RTX\s*3080\s*Ti.*Laptop/i, 16], [/RTX\s*3080.*Laptop/i, 8], [/RTX\s*3070.*Laptop/i, 8], [/RTX\s*3060.*Laptop/i, 6], [/RTX\s*3050.*Laptop/i, 4],
-  // NVIDIA desktop
-  [/RTX\s*PRO\s*6000/i, 96], [/RTX\s*6000\s*Ada/i, 48], [/RTX\s*A6000/i, 48], [/RTX\s*A5000/i, 24], [/RTX\s*A4000/i, 16],
-  [/RTX\s*5090/i, 32], [/RTX\s*5080/i, 16], [/RTX\s*5070\s*Ti/i, 16], [/RTX\s*5070/i, 12], [/RTX\s*5060\s*Ti/i, 16], [/RTX\s*5060/i, 8], [/RTX\s*5050/i, 8],
-  [/RTX\s*4090/i, 24], [/RTX\s*4080/i, 16], [/RTX\s*4070\s*Ti\s*Super/i, 16], [/RTX\s*4070\s*Ti/i, 12], [/RTX\s*4070/i, 12],
-  [/RTX\s*4060\s*Ti/i, 8], [/RTX\s*4060/i, 8],
-  [/RTX\s*3090/i, 24], [/RTX\s*3080\s*Ti/i, 12], [/RTX\s*3080/i, 10], [/RTX\s*3070/i, 8], [/RTX\s*3060\s*Ti/i, 8], [/RTX\s*3060/i, 12], [/RTX\s*3050/i, 8],
-  [/TITAN\s*RTX/i, 24], [/RTX\s*2080\s*Ti/i, 11], [/RTX\s*2080/i, 8], [/RTX\s*2070/i, 8], [/RTX\s*2060\s*Super/i, 8], [/RTX\s*2060/i, 6],
-  [/GTX\s*1660/i, 6], [/GTX\s*1650/i, 4], [/GTX\s*1080\s*Ti/i, 11], [/GTX\s*1080/i, 8], [/GTX\s*1070/i, 8], [/GTX\s*1060/i, 6], [/GTX\s*1050\s*Ti/i, 4],
-  [/Tesla\s*P40/i, 24], [/Tesla\s*V100/i, 16], [/\bA100\b/i, 80], [/\bH100\b/i, 80], [/\bL40S?\b/i, 48], [/\bL4\b/i, 24], [/\bT4\b/i, 16],
-  // AMD
-  [/Radeon\s*AI\s*PRO\s*R9700/i, 32], [/RX\s*9070\s*XT/i, 16], [/RX\s*9070/i, 16], [/RX\s*9060\s*XT/i, 16],
-  [/RX\s*7900\s*XTX/i, 24], [/RX\s*7900\s*XT/i, 20], [/RX\s*7900\s*GRE/i, 16], [/RX\s*7800\s*XT/i, 16], [/RX\s*7700\s*XT/i, 12], [/RX\s*7600\s*XT/i, 16], [/RX\s*7600/i, 8],
-  [/RX\s*6950\s*XT/i, 16], [/RX\s*6900\s*XT/i, 16], [/RX\s*6800/i, 16], [/RX\s*6750/i, 12], [/RX\s*6700\s*XT/i, 12], [/RX\s*6700/i, 10],
-  [/RX\s*6650\s*XT/i, 8], [/RX\s*6600/i, 8], [/RX\s*6500/i, 4], [/RX\s*6400/i, 4],
-  [/RX\s*5700/i, 8], [/RX\s*5600/i, 6], [/RX\s*5500/i, 8], [/Radeon\s*VII/i, 16], [/Vega\s*64/i, 8], [/Vega\s*56/i, 8],
-  [/Radeon\s*PRO\s*W7900/i, 48], [/Radeon\s*PRO\s*W7800/i, 32], [/Instinct\s*MI300X/i, 192], [/Instinct\s*MI250/i, 128],
-  // Intel Arc (discrete)
-  [/Arc.*B580/i, 12], [/Arc.*B570/i, 10], [/Arc.*A770/i, 16], [/Arc.*A750/i, 8], [/Arc.*A580/i, 8], [/Arc.*A380/i, 6], [/Arc.*A310/i, 4],
-];
+import type { VramSource } from "./vramMemory";
 
 // GPUs that draw from system RAM rather than their own memory.
 const UNIFIED_PATTERNS = [
@@ -51,16 +28,14 @@ const UNIFIED_PATTERNS = [
   /Mali/i,
 ];
 
-export function lookupVramMib(name: string | null): number | null {
-  if (!name) return null;
-  for (const [re, gb] of VRAM_TABLE) if (re.test(name)) return gb * MIB_PER_GB;
-  return null;
-}
+// Discrete cards the unified patterns above would also match: Arc A/B-series
+// ("Intel(R) Arc(TM) A770 Graphics"), Radeon RX Vega 56/64.
+const DISCRETE_PATTERNS = [/\b[AB]\d{3}\b/, /Vega\s*(56|64)\b/i, /RX\s*Vega/i];
 
 export function looksUnified(name: string | null, vendor: string | null): boolean {
   if (vendor && /apple/i.test(vendor)) return true;
   if (!name) return false;
-  if (lookupVramMib(name) != null) return false;
+  if (DISCRETE_PATTERNS.some((re) => re.test(name))) return false;
   return UNIFIED_PATTERNS.some((re) => re.test(name));
 }
 
@@ -72,6 +47,9 @@ export function cleanRendererName(raw: string): string {
     const parts = angle[1].split(", ");
     s = parts.length >= 2 ? parts[1] : parts[0];
   }
+  // Metal's ANGLE string names the chip after "ANGLE Metal Renderer:". Strip that
+  // label first: the Metal cut below would otherwise leave just "ANGLE".
+  s = s.replace(/^ANGLE Metal Renderer:\s*/i, "");
   return s
     .replace(/\s*\(0x[0-9a-f]+\)/gi, "")
     .replace(/\s*(Direct3D|D3D)\d*.*$/i, "")
@@ -96,6 +74,28 @@ function webglRenderer(): string | null {
   }
 }
 
+/** The device-local memory heap is the card's own memory. */
+const DEVICE_LOCAL_HEAP = 1;
+
+/** The card's own memory in MiB, from WebGPU's memory heaps (adapter info with
+ * Chrome's "WebGPU Developer Features" flag on). Null when the heaps are not
+ * given or hold no device-local memory. */
+export function vramFromHeaps(heaps: unknown): number | null {
+  if (!Array.isArray(heaps)) return null;
+  let bytes = 0;
+  for (const h of heaps as ({ size?: unknown; properties?: unknown } | null)[]) {
+    if (typeof h?.size === "number" && typeof h.properties === "number" && (h.properties & DEVICE_LOCAL_HEAP) !== 0) bytes += h.size;
+  }
+  return bytes > 0 ? Math.round(bytes / 1048576) : null;
+}
+
+/** WebGPU's adapter type ("discrete GPU", "integrated GPU", ...), with the developer flag on. Null when not given. */
+export function integratedFromType(type: unknown): boolean | null {
+  if (type === "integrated GPU") return true;
+  if (type === "discrete GPU" || type === "external GPU") return false;
+  return null;
+}
+
 /** Detects the GPU (call from a page: popup or content script). */
 export async function detectGpu(): Promise<GpuInfo> {
   const renderer = webglRenderer();
@@ -103,24 +103,31 @@ export async function detectGpu(): Promise<GpuInfo> {
   let architecture: string | null = null;
   let description: string | null = null;
   let noGpu = false;
-  // WebGL already names the card, so WebGPU is asked only when WebGL gave
-  // nothing. Chrome writes "No available adapters." to the extension's Errors
-  // list whenever a page asks and no adapter answers, even though it is caught.
-  if (!renderer) {
-    try {
-      const gpu = (navigator as Navigator & { gpu?: GPU }).gpu;
-      const adapter = gpu ? await gpu.requestAdapter(/Windows/.test(navigator.userAgent) ? undefined : { powerPreference: "high-performance" }) : null;
-      if (!adapter) noGpu = true;
-      else {
-        const info = adapter.info;
+  let vramMib: number | null = null;
+  let integrated: boolean | null = null;
+  // WebGL names the card when it can. WebGPU is asked either way, for the memory
+  // heaps and the adapter type, which only its adapter info gives (with the
+  // developer flag). Its name, vendor and "no adapter" answers are used only
+  // when WebGL gave nothing. Chrome logs "No available adapters." to the
+  // extension's Errors list when a page asks and none answers, even though it is caught.
+  try {
+    const gpu = (navigator as Navigator & { gpu?: GPU }).gpu;
+    const adapter = gpu ? await gpu.requestAdapter(/Windows/.test(navigator.userAgent) ? undefined : { powerPreference: "high-performance" }) : null;
+    if (!adapter) {
+      if (!renderer) noGpu = true;
+    } else {
+      const info = adapter.info as (GPUAdapterInfo & { isFallbackAdapter?: boolean; memoryHeaps?: unknown; type?: unknown }) | undefined;
+      if (!renderer) {
         vendor = info?.vendor || null;
         architecture = info?.architecture || null;
         description = info?.description || null;
-        if ((info as GPUAdapterInfo & { isFallbackAdapter?: boolean })?.isFallbackAdapter) noGpu = true;
+        if (info?.isFallbackAdapter) noGpu = true;
       }
-    } catch {
-      // No WebGPU: fall back on WebGL alone.
+      vramMib = vramFromHeaps(info?.memoryHeaps);
+      integrated = integratedFromType(info?.type);
     }
+  } catch {
+    // No WebGPU: fall back on WebGL alone.
   }
   const name = renderer ? cleanRendererName(renderer) : description;
   // A software renderer means Chrome has lost its GPU (it draws on Microsoft's
@@ -132,10 +139,11 @@ export async function detectGpu(): Promise<GpuInfo> {
     name,
     vendor,
     architecture,
-    tableVramMib: lookupVramMib(name),
-    unified: looksUnified(name, vendor),
+    // The adapter's own type decides when the browser gives it; the name guesses otherwise.
+    unified: integrated ?? looksUnified(name, vendor),
     noGpu,
     softwareRenderer,
+    vramMib,
     detectedAt: Date.now(),
   };
 }
@@ -184,13 +192,21 @@ export interface MemoryPicture {
   vramUnknown: boolean;
   /** Totals and free memory come from the native helper, not an estimate. */
   measured: boolean;
+  /** The VRAM total is the browser's own reading (WebGPU memory heaps, developer
+   * features flag). Free memory is not known: the whole card counts as free. */
+  totalFromBrowser?: boolean;
+  /** The VRAM total is not read now but was remembered: the source that gave it earlier (a worker or browser reading, the Hugging Face profile, or the size typed by the user). */
+  totalFromSaved?: VramSource;
   /** Unified memory fast enough to grade like VRAM (Apple silicon, Strix
    * Halo, GB10); an integrated GPU on ordinary DDR grades like the CPU. */
   fastUnified?: boolean;
 }
 
-export function memoryPicture(gpu: GpuInfo | null, ram: RamReading | null, s: Settings, helper: HelperGpu | null = null): MemoryPicture {
-  const real = realPicture(gpu, ram, s, helper);
+/** The size remembered for this card (savedVram in vramMemory.ts), used when nothing reads it now. */
+export type SavedVram = { mib: number; source: VramSource } | null;
+
+export function memoryPicture(gpu: GpuInfo | null, ram: RamReading | null, s: Settings, helper: HelperGpu | null = null, saved: SavedVram = null): MemoryPicture {
+  const real = realPicture(gpu, ram, s, helper, saved);
   return s.whatIf ? whatIfPicture(real, s) : real;
 }
 
@@ -200,7 +216,7 @@ export function memoryPicture(gpu: GpuInfo | null, ram: RamReading | null, s: Se
 export function whatIfPicture(real: MemoryPicture, s: Settings): MemoryPicture {
   const ram = s.whatIfRamMib ?? real.ramTotalMib;
   const vram = s.whatIfVramMib ?? (real.kind === "unified" ? null : real.deviceTotalMib);
-  const out: MemoryPicture = { ...real, ramTotalMib: ram, ramAvailableMib: ram, vramUnknown: false, measured: false };
+  const out: MemoryPicture = { ...real, ramTotalMib: ram, ramAvailableMib: ram, vramUnknown: false, measured: false, totalFromBrowser: false, totalFromSaved: undefined };
   if (real.kind === "unified") {
     // Unified memory follows the imagined RAM (Apple keeps ~3/4 for Metal).
     const share = real.ramTotalMib ? real.deviceTotalMib / real.ramTotalMib : 1;
@@ -211,7 +227,7 @@ export function whatIfPicture(real: MemoryPicture, s: Settings): MemoryPicture {
   return { ...out, kind: dev > 0 ? "vram" : "cpu", deviceTotalMib: dev, deviceFreeMib: dev };
 }
 
-function realPicture(gpu: GpuInfo | null, ram: RamReading | null, s: Settings, helper: HelperGpu | null): MemoryPicture {
+function realPicture(gpu: GpuInfo | null, ram: RamReading | null, s: Settings, helper: HelperGpu | null, saved: SavedVram): MemoryPicture {
   const ramTotal = ram?.totalMib ?? null;
   const ramAvail = ram?.availableMib ?? null;
   if (helper && !s.cpuOnly && s.unifiedOverride == null) {
@@ -226,14 +242,15 @@ function realPicture(gpu: GpuInfo | null, ram: RamReading | null, s: Settings, h
       const free = Math.max(0, Math.min(total, pool - used, ramAvail ?? Infinity));
       return { kind: "unified", deviceTotalMib: total, deviceFreeMib: free, ...base, fastUnified: apple || isFastUnified([helper.name]) };
     }
-    const total = s.vramOverrideMib ?? helper.dedicatedTotalMib;
+    // The worker's measured total is the first source: nothing else overrides it.
+    const total = helper.dedicatedTotalMib;
     const used = helper.dedicatedUsedMib ?? 0;
     return { kind: "vram", deviceTotalMib: total, deviceFreeMib: Math.max(0, total - used), ...base };
   }
-  return estimatedPicture(gpu, ram, s);
+  return estimatedPicture(gpu, ram, s, saved);
 }
 
-function estimatedPicture(gpu: GpuInfo | null, ram: RamReading | null, s: Settings): MemoryPicture {
+function estimatedPicture(gpu: GpuInfo | null, ram: RamReading | null, s: Settings, saved: SavedVram): MemoryPicture {
   const ramTotal = ram?.totalMib ?? null;
   const ramAvail = ram?.availableMib ?? null;
   const noGpu = s.cpuOnly || !gpu || gpu.noGpu;
@@ -256,7 +273,12 @@ function estimatedPicture(gpu: GpuInfo | null, ram: RamReading | null, s: Settin
       fastUnified: apple || isFastUnified([gpu.name, gpu.vendor]),
     };
   }
-  const total = s.vramOverrideMib ?? gpu.tableVramMib;
+  // Without a worker, the total is the browser's own reading (WebGPU memory
+  // heaps, developer features flag) when there is one; otherwise the size
+  // remembered for this card (a reading from before, a Hugging Face profile
+  // entry, or the size the user typed). Nothing is guessed from the name.
+  const browserTotal = gpu.vramMib ?? null;
+  const total = browserTotal ?? saved?.mib ?? null;
   if (total == null) return { kind: "vram", deviceTotalMib: 0, deviceFreeMib: 0, ramTotalMib: ramTotal, ramAvailableMib: ramAvail, vramUnknown: true, measured: false };
   return {
     kind: "vram",
@@ -267,5 +289,7 @@ function estimatedPicture(gpu: GpuInfo | null, ram: RamReading | null, s: Settin
     ramAvailableMib: ramAvail,
     vramUnknown: false,
     measured: false,
+    totalFromBrowser: browserTotal != null,
+    totalFromSaved: browserTotal == null ? saved?.source : undefined,
   };
 }

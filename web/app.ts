@@ -10,7 +10,7 @@
 import { readModelFacts, type ModelFacts } from "../src/hfHeader";
 import { transformerLayers } from "../src/layers";
 import { evaluateFit, memoryScale, deviceBudget } from "../src/fit";
-import { detectGpu, lookupVramMib, looksUnified, memoryPicture, type MemoryPicture } from "../src/hardware";
+import { detectGpu, looksUnified, memoryPicture, type MemoryPicture } from "../src/hardware";
 import { CTX_SLIDER_MAX, DEFAULT_SETTINGS, ctxFromSlider, ctxLabel, sliderFromCtx, ticksHtml, type GpuInfo, type Settings } from "../src/settings";
 import { isAuxiliary } from "../src/fileMap";
 import { gradeSvg, uncheckedSvg } from "../shared/breadMarks";
@@ -66,7 +66,6 @@ function settings(): Settings {
     marginMib: Math.round(prefs.keepVramGb * 1024),
     ramMarginMode: "preset",
     ramMarginMib: Math.round(prefs.keepRamGb * 1024),
-    vramOverrideMib: prefs.vramGb != null ? Math.round(prefs.vramGb * 1024) : null,
     unifiedOverride: prefs.memType === "unified" ? true : prefs.memType === "vram" ? false : null,
     cpuOnly: prefs.memType === "cpu",
   };
@@ -79,7 +78,6 @@ function gpuInfo(): GpuInfo {
     name,
     vendor: name && /apple/i.test(name) ? "Apple" : null,
     architecture: null,
-    tableVramMib: lookupVramMib(name),
     unified: looksUnified(name, null),
     noGpu: !forced && (name == null || (name === detectedGpu?.name && detectedGpu.noGpu)),
     detectedAt: Date.now(),
@@ -88,7 +86,9 @@ function gpuInfo(): GpuInfo {
 
 function machine(): MemoryPicture {
   const ramMib = prefs.ramGb * 1024;
-  return memoryPicture(gpuInfo(), { totalMib: ramMib, availableMib: ramMib }, settings());
+  // The size typed on the page is the remembered (manual) one for this card; it has no browser reading here.
+  const typed = prefs.vramGb != null ? { mib: Math.round(prefs.vramGb * 1024), source: "manual" as const } : null;
+  return memoryPicture(gpuInfo(), { totalMib: ramMib, availableMib: ramMib }, settings(), null, typed);
 }
 
 /* ---------- the model ---------- */

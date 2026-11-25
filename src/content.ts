@@ -8,7 +8,9 @@
 
 import toasterSvg from "virtual:toaster-svg";
 import { deviceBudget, deviceInUseMib, evaluateFit, ramInUseMib, type FitAnswer } from "./fit";
-import { detectGpu, memoryPicture, type MemoryPicture, type RamReading } from "./hardware";
+import { detectGpu, memoryPicture, type MemoryPicture, type RamReading, type SavedVram } from "./hardware";
+import { getVramStore, rememberVram, savedVram, VRAM_STORE_KEY, type VramStore } from "./vramMemory";
+import { fetchHfVramMib, hfCheckDue, signedInUsername } from "./hfProfile";
 import type { ModelFacts } from "./hfHeader";
 import { transformerLayers } from "./layers";
 import { tipText } from "./tooltip";
@@ -172,7 +174,13 @@ function badgeChip(c: Chip, tag: AuxTag) {
 // ---------------------------------------------------------------- marks
 
 function memNow(): MemoryPicture {
-  return memoryPicture(gpu, ram, settings, ram?.helper ?? null);
+  return memoryPicture(gpu, ram, settings, ram?.helper ?? null, saved);
+}
+
+/** The size remembered for this card, from the store the popup keeps. */
+let saved: SavedVram = null;
+function resolveSaved(store: VramStore) {
+  saved = savedVram(store, gpu?.name);
 }
 
 // Hugging Face-style tooltip: a dark rounded bubble with an arrow, above the mark.
@@ -437,7 +445,8 @@ async function refreshRam() {
 
 async function ensureGpu() {
   gpu = await getGpu();
-  if (!gpu) {
+  // No browser total yet (the flag may have been turned on since, or GpuInfo is from before vramMib existed): detect again.
+  if (!gpu || gpu.vramMib == null) {
     gpu = await detectGpu();
     await chrome.storage.local.set({ gpu });
   }
@@ -615,13 +624,48 @@ function scan() {
   else if (added) updateBar();
 }
 
+/** On a Hugging Face page, when no reading or remembered size covers this card:
+ * ask Hugging Face who is signed in here and remember the card's size from that
+ * user's hardware list. At most once an hour (hfCheckDue). */
+async function lookUpHfHardware() {
+  let here = gpu;
+  if (!here) {
+    here = await detectGpu();
+    gpu = here;
+    await chrome.storage.local.set({ gpu: here });
+  }
+  const { hfSignedOutAt } = await chrome.storage.local.get("hfSignedOutAt");
+  const due = hfCheckDue({
+    readingKnown: here.vramMib != null,
+    saved,
+    lastCheckedAt: typeof hfSignedOutAt === "number" ? hfSignedOutAt : null,
+    now: Date.now(),
+  });
+  if (!due || !here.name) return;
+  // One attempt per page load. The hour's pause starts only when Hugging Face
+  // answered that nobody is signed in: a failed request or a card missing from
+  // the profile must not lock out the next try (the user may add it, or retry).
+  const user = await signedInUsername();
+  if (!user) {
+    await chrome.storage.local.set({ hfSignedOutAt: Date.now() });
+    return;
+  }
+  const mib = await fetchHfVramMib(user, here.name);
+  if (mib != null) await rememberVram(here.name, "hf", mib);
+}
+
 async function init() {
   settings = await getSettings();
   gpu = await getGpu();
+  resolveSaved(await getVramStore());
   chrome.storage.onChanged.addListener((changes) => {
     if (changes.settings) settings = { ...settings, ...(changes.settings.newValue as Settings) };
-    if (changes.gpu) gpu = changes.gpu.newValue as GpuInfo;
-    if (changes.settings || changes.gpu) reevaluate();
+    if (changes.gpu) {
+      gpu = changes.gpu.newValue as GpuInfo;
+      void getVramStore().then(resolveSaved);
+    }
+    if (changes[VRAM_STORE_KEY]) resolveSaved((changes[VRAM_STORE_KEY].newValue as VramStore | undefined) ?? {});
+    if (changes.settings || changes.gpu || changes[VRAM_STORE_KEY]) reevaluate();
     if (changes.settings && page) renderInfo(page);
     // Switched to auto with this page open: check it now.
     if (changes.settings && settings.mode === "auto" && page && !page.armed && !page.running) void calculate();
@@ -636,6 +680,7 @@ async function init() {
     });
   }).observe(document.body, { childList: true, subtree: true });
   scan();
+  void lookUpHfHardware().catch((err) => console.warn("LlamaToaster: could not read the Hugging Face hardware list", err));
   // Available RAM moves; keep the marks honest while the tab is in view.
   setInterval(() => {
     if (page && document.visibilityState === "visible" && page.chips.some((c) => c.facts)) void refreshRam().then(reevaluate);
