@@ -1,4 +1,5 @@
 import { deviceBudget, deviceInUseMib } from "./fit";
+import { escapeHtml, setHtml } from "./trustedHtml";
 import { primaryGpu, ramLabel, readHelper, type HelperApp, type HelperGpu, type HelperRam, type HelperResult } from "./helper";
 import { detectGpu, memoryPicture, readCpu, readRam, type MemoryPicture, type RamReading } from "./hardware";
 import { WHATIF_STOPS_GB } from "./settings";
@@ -104,9 +105,9 @@ function renderLegend(mem: MemoryPicture) {
   const scale = memoryScale(mem);
   const dark = readTheme() === "dark";
   // Built from constants in shared/breadMarks.ts and shared/fitGrade.ts.
-  $("fitLegend").innerHTML = fitGrades(scale)
+  setHtml($("fitLegend"), fitGrades(scale)
     .map((g) => `<span class="mark">${gradeSvg(scale, g, { px: 14, dark })}</span><span>${fitGradeLegendLabel(scale, g, "yours")}</span>`)
-    .join("");
+    .join(""));
 }
 
 /** Fills a value cell: plain strings are dimmed hardware names, [text] is a bold memory amount. */
@@ -202,7 +203,7 @@ async function renderMemory() {
   $("workerHead").hidden = !offerWorker;
   $("workerBody").hidden = !offerWorker || $("workerHead").getAttribute("aria-expanded") !== "true";
   if (offerWorker) {
-    $("workerBody").innerHTML = helperReason(helperRes);
+    setHtml($("workerBody"), helperReason(helperRes));
   }
 
   const note = $("memNote");
@@ -337,12 +338,18 @@ function renderWhatIf(real: MemoryPicture, ram: RamReading | null, llamaRam: num
     const low = whatIfLowList[id];
     const pct = whatIfPlace(whatIfOwn[id], stops, value);
     const lowNotches = low.slice(0, -1).map((_, i) => `<i style="left:${((low[i] / whatIfOwn[id]) * 50).toFixed(3)}%"></i>`);
-    $(`whatIfNotches_${id}`).innerHTML = lowNotches
+    setHtml($(`whatIfNotches_${id}`), lowNotches
       .concat(stops.map((_, i) => `<i${i === 0 && whatIfOwn[id] > 0 ? ' class="own"' : ""} style="left:${whatIfPct(i, stops.length, whatIfOwn[id]).toFixed(3)}%"></i>`))
-      .join("");
+      .join(""));
     $(`whatIf_${id}`).querySelector<HTMLElement>(".lever")!.style.left = `${pct}%`;
-    $(`whatIf_${id}`).setAttribute("aria-valuetext", big(value));
     const own = whatIfOwn[id];
+    const track = $(`whatIf_${id}`);
+    const lowest = own > 0 ? Math.min(WHATIF_MIN_MIB, own) : stops[0] ?? 0;
+    track.setAttribute("aria-valuemin", String(+(lowest / 1024).toFixed(1)));
+    track.setAttribute("aria-valuemax", String(+((stops[stops.length - 1] ?? own) / 1024).toFixed(1)));
+    track.setAttribute("aria-valuenow", String(+(value / 1024).toFixed(1)));
+    track.setAttribute("aria-valuetext", big(value));
+    track.setAttribute("aria-disabled", String(!stops.length));
     const x = own > 0 ? value / own : 0;
     if (own > 0) parts(`whatIfVal_${id}`, [big(value)], ` · ${x >= 10 ? x.toFixed(0) : x < 0.1 ? +x.toFixed(2) : +x.toFixed(1)}× yours`);
     else if (stops.length && value > 0) parts(`whatIfVal_${id}`, [big(value)]);
@@ -396,8 +403,17 @@ function wireWhatIf() {
     track.addEventListener("pointercancel", end);
     track.addEventListener("keydown", (e) => {
       const stops = whatIfStopList[id];
+      if (!stops.length) return;
+      // Home / End: the smallest and the largest size, as on a native slider.
+      if (e.key === "Home" || e.key === "End") {
+        e.preventDefault();
+        const own = whatIfOwn[id];
+        const next = e.key === "End" ? stops[stops.length - 1] : own > 0 ? Math.min(WHATIF_MIN_MIB, own) : stops[0];
+        void save({ [key]: next } as Partial<Settings>, true);
+        return;
+      }
       const d = e.key === "ArrowRight" || e.key === "ArrowUp" ? 1 : e.key === "ArrowLeft" || e.key === "ArrowDown" ? -1 : 0;
-      if (!d || !stops.length) return;
+      if (!d) return;
       e.preventDefault();
       // Up to the own size: 0.1 GB (Shift: 1 GB) like the keep-free lever. Above it, notch to notch.
       const cur = whatIfValue(id);
@@ -408,7 +424,7 @@ function wireWhatIf() {
         next = Math.max(Math.min(WHATIF_MIN_MIB, own), Math.min(own, Math.round((cur + d * step) / KEEP_STEP) * KEEP_STEP));
         if (d > 0 && cur + step >= own) next = own;
       } else {
-        next = d > 0 ? stops.find((s) => s > cur + 1) ?? stops[stops.length - 1] : [...stops].reverse().find((s) => s < cur - 1) ?? stops[0];
+        next = d > 0 ? stops.find((s) => s > cur + 1) ?? stops[stops.length - 1] : stops.findLast((s) => s < cur - 1) ?? stops[0];
       }
       void save({ [key]: next } as Partial<Settings>, true);
     });
@@ -598,12 +614,36 @@ function renderTheme() {
   applyTheme(theme);
   const next: Theme = theme === "dark" ? "light" : "dark";
   const b = $("theme");
-  b.innerHTML = THEME_ICONS[next];
+  setHtml(b, THEME_ICONS[next]);
   const label = next === "light" ? "Switch to day mode" : "Switch to night mode";
   b.title = label;
   b.setAttribute("aria-label", label);
   if (lastLegendMem) renderLegend(lastLegendMem);
 }
+/**
+ * The CSS tips (data-tip): screen readers get the same text as a description of
+ * the control, and Escape hides a showing tip until the pointer or focus moves.
+ */
+function wireTips() {
+  for (const host of document.querySelectorAll<HTMLElement>("[data-tip]")) {
+    const control = host.matches("button, input, [tabindex]") ? host : host.querySelector<HTMLElement>("input, button");
+    const tip = host.dataset.tip;
+    if (control && tip && tip.trim() !== (control.getAttribute("aria-label") ?? host.textContent ?? "").trim()) control.setAttribute("aria-description", tip);
+  }
+  const body = document.body;
+  document.addEventListener("keydown", (e) => {
+    // Only when a tip is up: otherwise Escape keeps its usual job (closing the popup).
+    const showing = document.querySelector("[data-tip]:hover, [data-tip]:focus-visible, [data-tip]:has(:focus-visible), .vram-hint:hover, .vram-hint:focus-within");
+    if (e.key === "Escape" && showing && !body.classList.contains("tips-off")) {
+      body.classList.add("tips-off");
+      e.preventDefault();
+    }
+  });
+  const back = () => body.classList.remove("tips-off");
+  document.addEventListener("pointermove", back, { passive: true });
+  document.addEventListener("focusin", back);
+}
+
 function wireTheme() {
   renderTheme();
   $("theme").addEventListener("click", () => {
@@ -614,10 +654,6 @@ function wireTheme() {
   addEventListener("storage", (e) => {
     if (e.key === THEME_KEY || e.key === null) renderTheme();
   });
-}
-
-function escapeHtml(s: string) {
-  return s.replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]!);
 }
 
 // Local state updates at once; storage gets the latest value, coalesced so a
@@ -652,6 +688,7 @@ async function openFlagsPage() {
 
 async function main() {
   wireTheme();
+  wireTips();
   renderDock();
   void chrome.windows?.getCurrent().then((w) => (windowId = w.id));
   settings = await getSettings();
@@ -666,7 +703,7 @@ async function main() {
   if (cpu) parts("cpu", `${cpu.model} · ${cpu.threads} threads`);
   else parts("cpu", "unknown");
 
-  $("ticks").innerHTML = ticksHtml();
+  setHtml($("ticks"), ticksHtml());
   wireWhatIf();
 
   // Manual / Auto: a wall toggle switch. The switch flips it; each word picks its side.

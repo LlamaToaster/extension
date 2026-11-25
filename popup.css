@@ -449,7 +449,8 @@ header h1.wordmark img { width: auto; height: 30px; border-radius: 0; }
   transition: opacity 0.12s ease-out, visibility 0.12s;
 }
 #memTitle[data-tip] { position: relative; cursor: help; }
-.whatif-on[data-tip]:hover::after, .more-on[data-tip]:hover::after, #memTitle[data-tip]:hover::after { opacity: 1; visibility: visible; transition-delay: 0.25s; }
+.whatif-on[data-tip]:hover::after, .more-on[data-tip]:hover::after, #memTitle[data-tip]:hover::after,
+.whatif-on[data-tip]:has(:focus-visible)::after, .more-on[data-tip]:has(:focus-visible)::after { opacity: 1; visibility: visible; transition-delay: 0.25s; }
 .whatif-max { margin-top: 0; font-size: 11px; display: flex; justify-content: space-between; }
 
 #memory:not(.whatif) .wi, #memory.whatif .real { display: none !important; }
@@ -508,3 +509,7 @@ button.ghost:hover { background: var(--ghost-hover); }
 /* No size of this machine's own (VRAM not detected or set): the imagined range fills the whole bar, from the left. */
 .wi-real.empty { flex-basis: 0; }
 .wi-bar:has(.wi-real.empty) .wi-proj { border-radius: 4px; }
+
+/* Escape hides whatever tip is showing (WCAG 1.4.13: dismissible without moving
+   the pointer or focus); the next pointer move or focus change brings tips back. */
+.tips-off [data-tip]::after, .tips-off .vram-tip { opacity: 0 !important; visibility: hidden !important; pointer-events: none !important; }

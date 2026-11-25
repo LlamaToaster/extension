@@ -15,6 +15,7 @@ import { CTX_SLIDER_MAX, DEFAULT_SETTINGS, ctxFromSlider, ctxLabel, sliderFromCt
 import { isAuxiliary } from "../src/fileMap";
 import { gradeSvg, uncheckedSvg } from "../shared/breadMarks";
 import { fitGradeLegendLabel, fitGrades } from "../shared/fitGrade";
+import { setHtml } from "../src/trustedHtml";
 
 type MemType = "auto" | "vram" | "unified" | "cpu";
 
@@ -227,20 +228,20 @@ function render() {
     let headline = "Reading the header…";
     let lines: string[] = [];
     if (r.error) {
-      mark.innerHTML = uncheckedSvg(16);
+      setHtml(mark, uncheckedSvg(16));
       headline = r.error;
     } else if (r.facts) {
       if (mem.vramUnknown) {
-        mark.innerHTML = uncheckedSvg(16);
+        setHtml(mark, uncheckedSvg(16));
         headline = "Type the VRAM size to check this";
       } else {
         const a = evaluateFit(r.facts, mem, s, budget);
-        mark.innerHTML = a.grade != null ? gradeSvg(a.scale, a.grade, { px: 16, dark: true }) : uncheckedSvg(16);
+        setHtml(mark, a.grade != null ? gradeSvg(a.scale, a.grade, { px: 16, dark: true }) : uncheckedSvg(16));
         headline = a.headline;
         lines = a.details;
       }
     } else {
-      mark.innerHTML = uncheckedSvg(16);
+      setHtml(mark, uncheckedSvg(16));
     }
     sum.append(mark, el("span", "q", r.label), el("span", "size muted", r.size ? gb(r.size / 1048576) : ""), el("span", "head", headline));
     det.append(sum);
@@ -253,9 +254,9 @@ function render() {
   }
   $("results").hidden = rows.length === 0;
 
-  $("legend").innerHTML = fitGrades(scale)
+  setHtml($("legend"), fitGrades(scale)
     .map((g) => `<span class="mark">${gradeSvg(scale, g, { px: 14, dark: true })}</span><span>${fitGradeLegendLabel(scale, g, "yours")}</span>`)
-    .join("");
+    .join(""));
 }
 
 /* ---------- inputs ---------- */
@@ -327,7 +328,7 @@ function init() {
   const slider = $<HTMLInputElement>("ctx");
   slider.max = String(CTX_SLIDER_MAX);
   slider.value = String(sliderFromCtx(prefs.ctx));
-  $("ticks").innerHTML = ticksHtml();
+  setHtml($("ticks"), ticksHtml());
   slider.addEventListener("input", () => {
     prefs.ctx = ctxFromSlider(Number(slider.value));
     // The thumb snaps to the labelled stops.

@@ -241,7 +241,7 @@ export async function readModelFacts(
     // Each tensor's stored length is the gap to the next offset; the last one
     // runs to the end of this shard's data section.
     const dataBytes = h.size - h.walk.headerEnd;
-    const sorted = [...h.walk.tensors].sort((a, b) => a.offset - b.offset);
+    const sorted = h.walk.tensors.toSorted((a, b) => a.offset - b.offset);
     for (let k = 0; k < sorted.length; k++) {
       const next = k + 1 < sorted.length ? sorted[k + 1].offset : dataBytes;
       allTensors.push({ name: sorted[k].name, size: Math.max(0, next - sorted[k].offset) });

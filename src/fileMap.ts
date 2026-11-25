@@ -57,7 +57,7 @@ function matchLabels(labels: string[], ggufs: string[]): Map<string, string> {
     const folder = file.includes("/") ? file.split("/").slice(-2, -1)[0].toLowerCase() : "";
     return s === l || s.endsWith(`-${l}`) || s.endsWith(`_${l}`) || s.endsWith(`.${l}`) || folder === l;
   };
-  const sorted = [...ggufs].sort((a, b) => a.length - b.length);
+  const sorted = ggufs.toSorted((a, b) => a.length - b.length);
   for (const f of sorted) {
     const label = byLen.find((l) => matches(f, l));
     if (label && !out.has(label)) out.set(label, f);

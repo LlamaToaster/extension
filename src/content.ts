@@ -18,6 +18,7 @@ import { CTX_SLIDER_MAX, ctxFromSlider, ctxLabel, getGpu, getSettings, setSettin
 import { mapChipFiles } from "./fileMap";
 import { HF_AUX_LABELS, type AuxTag } from "../shared/hfAuxFiles";
 import { gradeSvg } from "../shared/breadMarks";
+import { setHtml } from "./trustedHtml";
 
 /** Hugging Face's dark theme puts a "dark" class on <html>. */
 function pageIsDark(): boolean {
@@ -199,6 +200,8 @@ function showTip(m: HTMLElement) {
 function hideTip() {
   tip?.remove();
 }
+// Escape hides the tip without moving the pointer (WCAG 1.4.13); the page keeps the key.
+document.addEventListener("keydown", (e) => { if (e.key === "Escape") hideTip(); });
 
 function renderChip(c: Chip) {
   const m = c.mark;
@@ -212,7 +215,7 @@ function renderChip(c: Chip) {
     m.dataset.tip = c.error ?? "Could not read this file";
   } else if (c.answer) {
     // Built from constants in shared/breadMarks.ts, never from page content.
-    if (c.answer.grade != null) m.innerHTML = gradeSvg(c.answer.scale, c.answer.grade, { px: 14, dark: pageIsDark() });
+    if (c.answer.grade != null) setHtml(m, gradeSvg(c.answer.scale, c.answer.grade, { px: 14, dark: pageIsDark() }));
     else m.textContent = c.answer.mark;
     m.dataset.tip = tipText(c.answer, settings.moreDetails);
   }
@@ -256,7 +259,7 @@ function installBar(p: PageState) {
     // Hugging Face's own heading classes: same size, font and colour as "Hardware compatibility".
     const root = Object.assign(document.createElement("div"), { className: "lt-bar text-smd -ml-0.5 flex items-center gap-1" });
     const button = Object.assign(document.createElement("button"), { type: "button", className: "lt-toaster" });
-    button.innerHTML = toasterSvg;
+    setHtml(button, toasterSvg);
     button.setAttribute("aria-label", "LlamaToaster: check which quants fit this machine");
     const text = Object.assign(document.createElement("span"), { className: "lt-bar-text text-gray-500" });
     root.append(button, text); // toaster before (left of) the words
@@ -401,7 +404,7 @@ function renderInfo(p: PageState) {
     info.maxCtx = maxCtx;
     const maxPos = maxCtx ? Math.max(1, sliderFromCtx(maxCtx)) : CTX_SLIDER_MAX;
     info.slider.max = String(maxPos);
-    info.ticks.innerHTML = ticksHtml(maxPos); // built from constants only
+    setHtml(info.ticks, ticksHtml(maxPos)); // built from constants only
   }
   paintSlider(info);
 }
