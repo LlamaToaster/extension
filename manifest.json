@@ -23,7 +23,7 @@
     "default_path": "panel.html"
   },
   "content_security_policy": {
-    "extension_pages": "script-src 'self'; object-src 'self'"
+    "extension_pages": "script-src 'self'; object-src 'self'; require-trusted-types-for 'script'; trusted-types lt-html"
   },
   "background": {
     "service_worker": "background.js"
