@@ -7,14 +7,16 @@ export interface GpuInfo {
   name: string | null;
   vendor: string | null;
   architecture: string | null;
-  /** Total VRAM from the lookup table, MiB; null when the GPU is not in it. */
-  tableVramMib: number | null;
   /** The GPU shares system memory (Apple silicon, integrated graphics). */
   unified: boolean;
   /** WebGPU is unavailable or only a software adapter answered. */
   noGpu: boolean;
   /** WebGL names a software renderer: Chrome has lost its GPU and draws without it. */
   softwareRenderer?: boolean;
+  /** The card's own memory in MiB, read from WebGPU's memory heaps (Chrome's
+   * "WebGPU Developer Features" flag). Null when not given; undefined in GpuInfo
+   * saved before this was read. */
+  vramMib?: number | null;
   detectedAt: number;
 }
 
@@ -36,8 +38,6 @@ export interface Settings {
   ramMarginMode: MarginMode;
   /** The fixed amount kept free in RAM (ramMarginMode "preset"), MiB. */
   ramMarginMib: number;
-  /** User-entered total VRAM, MiB; null = use the table. */
-  vramOverrideMib: number | null;
   /** null = auto (detected). */
   unifiedOverride: boolean | null;
   /** Run as CPU-only regardless of the GPU found. */
@@ -62,7 +62,6 @@ export const DEFAULT_SETTINGS: Settings = {
   // the model gets what the OS reports as available.
   ramMarginMode: "current",
   ramMarginMib: 4096,
-  vramOverrideMib: null,
   unifiedOverride: null,
   cpuOnly: false,
   sidePanel: false,
@@ -76,7 +75,7 @@ export const DEFAULT_SETTINGS: Settings = {
  * stop at this machine's own size. */
 export const WHATIF_STOPS_GB = {
   ram: [8, 12, 16, 24, 32, 48, 64, 96, 128, 192, 256, 384, 512, 768, 1024],
-  vram: [4, 6, 8, 12, 16, 24, 32, 48, 64, 96, 128, 192, 256, 384],
+  vram: [4, 6, 8, 12, 16, 24, 32, 48, 64, 96, 128, 192, 256, 384, 512],
   unified: [8, 16, 24, 32, 48, 64, 96, 128, 192, 256, 512, 1024],
 };
 export type WhatIfScale = keyof typeof WHATIF_STOPS_GB;

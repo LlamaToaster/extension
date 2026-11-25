@@ -160,6 +160,7 @@ section { padding: 12px 16px; border-bottom: 1px solid var(--border); }
 .row { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; padding: 3px 0; }
 .row .k { color: var(--muted); white-space: nowrap; }
 .row .v { text-align: right; overflow-wrap: anywhere; }
+.row[hidden] { display: none; }
 
 .bar { height: 8px; background: var(--bar-free); border: 1px solid var(--border); margin: 4px 0 8px; position: relative; }
 .bar > i { position: absolute; top: 0; bottom: 0; width: 0; }
@@ -213,9 +214,9 @@ select option { background: var(--surface-raised); color: var(--fg); }
 }
 /* Folded sections slide in the same way when opened. */
 @keyframes unfold { from { opacity: 0; translate: 0 -4px; } }
-.fold-body:not([hidden]), .legend:not([hidden]) { animation: unfold 0.16s ease; }
+.fold-body:not([hidden]), .legend:not([hidden]), #workerBody:not([hidden]) { animation: unfold 0.16s ease; }
 @media (prefers-reduced-motion: reduce) {
-  ::picker(select), .fold-body, .legend, .chev { transition: none !important; animation: none !important; }
+  ::picker(select), .fold-body, .legend, #workerBody, .chev { transition: none !important; animation: none !important; }
 }
 select.sub { font-size: 12px; color: var(--muted); }
 select.sub:hover { color: var(--accent-text); }
@@ -308,6 +309,9 @@ footer { padding: 10px 16px 14px; font-size: 12px; color: var(--muted); }
 
 /* In the side panel the page fills the panel's width. */
 body.panel { width: auto; min-height: 100vh; }
+/* The side panel is often shorter than its content (a 1536x864 laptop shows about 730px of it),
+   so it scrolls. A slim scrollbar in the theme's colours keeps the strip beside it narrow. */
+html { scrollbar-width: thin; scrollbar-color: var(--border-strong) transparent; }
 
 footer p { margin: 0; }
 /* The accuracy note sits quietly in the footer: same muted text, a bit smaller. */
@@ -317,8 +321,25 @@ footer p { margin: 0; }
 .note a { color: var(--accent-text); }
 
 button.ghost.tiny { padding: 0 5px; font-size: 11px; line-height: 16px; vertical-align: 1px; }
-#editVram { border: 0; background: transparent; color: var(--muted); padding: 0 0 0 4px; font-weight: 400; }
-#editVram:hover { color: var(--accent-text); text-decoration: underline; text-underline-offset: 2px; }
+/* The hint for a size the browser can't read: shows on hover or focus over the field. */
+.vram-hint { position: relative; }
+/* Same bubble as the More details and What if hints: same colours, shadow, fade and delay. */
+.vram-tip {
+  position: absolute; right: 0; top: calc(100% + 6px); z-index: 10; width: 260px;
+  padding: 8px 10px; border: 1px solid var(--tip-border); border-radius: 8px;
+  background: var(--tip-bg); color: var(--fg);
+  font: 400 12px/1.45 system-ui, sans-serif; letter-spacing: normal; text-transform: none; text-align: left; text-shadow: none;
+  box-shadow: 0 0 0 3px var(--bg), var(--shadow-tip);
+  opacity: 0; visibility: hidden; pointer-events: none;
+  transition: opacity 0.12s ease-out, visibility 0.12s;
+}
+/* A bridge over the gap, so the pointer can travel from the field to the links inside. */
+.vram-tip::before { content: ""; position: absolute; left: 0; right: 0; top: -8px; height: 8px; }
+.vram-hint:hover .vram-tip, .vram-hint:focus-within .vram-tip { opacity: 1; visibility: visible; pointer-events: auto; transition-delay: 0.25s; }
+.vram-tip .tip-title { display: block; color: var(--fg); font-weight: 600; margin-bottom: 4px; }
+.vram-tip ol { margin: 0; padding-left: 16px; }
+.vram-tip li { margin: 3px 0; }
+.vram-tip a { color: var(--accent-text); }
 /* Keep free: a toaster-lever paddle under each memory bar, on one line with
    its label. Where it stands is where the model's share ends; the part of the
    bar right of it (kept free) is dimmed. */
@@ -382,6 +403,7 @@ button.ghost.tiny { padding: 0 5px; font-size: 11px; line-height: 16px; vertical
   padding: 6px 8px; border: 1px solid var(--border-strong); border-radius: 4px;
   background: var(--surface-raised); color: var(--fg-2);
   font: 400 12px/1.35 system-ui, sans-serif; letter-spacing: normal; text-transform: none; text-align: left; text-shadow: none;
+  white-space: normal; overflow-wrap: break-word;
   box-shadow: var(--shadow-pop);
   opacity: 0; visibility: hidden; pointer-events: none;
   transition: opacity 0.12s ease-out, visibility 0.12s;
@@ -409,22 +431,24 @@ header h1.wordmark img { width: auto; height: 30px; border-radius: 0; }
 .logo-rule i { flex: 1; height: 1.5px; background: var(--border-strong); border-radius: 1px; }
 #legendSec { border-bottom: 0; }
 
-.whatif-on { position: relative; font-size: 12px; color: var(--muted); display: flex; align-items: center; gap: 6px; cursor: pointer; }
-.more-on { position: relative; font-size: 12px; color: var(--muted); display: flex; align-items: center; gap: 6px; cursor: pointer; width: fit-content; margin: 8px 0 0 auto; }
-/* A hover popup that says what What if is, on the checkbox and on the title once it is on. */
+/* What if and More details: left-aligned checkbox rows, each on its own line. */
+.whatif-on { position: relative; font-size: 12px; color: var(--muted); display: flex; align-items: center; gap: 6px; cursor: pointer; width: fit-content; margin: 0 0 6px; }
+.more-on { position: relative; font-size: 12px; color: var(--muted); display: flex; align-items: center; gap: 6px; cursor: pointer; width: fit-content; margin: 8px 0 0; }
+/* A hover popup that says what What if is, on the checkbox and on the title once it is on.
+   Anchored to the left edge, since the checkboxes sit at the left. */
 .whatif-on[data-tip]::after, .more-on[data-tip]::after, #memTitle[data-tip]::after {
   content: attr(data-tip);
-  position: absolute; top: calc(100% + 6px); right: 0; z-index: 10;
+  position: absolute; top: calc(100% + 6px); left: 0; z-index: 10;
   width: max-content; max-width: 250px;
   padding: 6px 8px; border: 1px solid var(--tip-border); border-radius: 4px;
   background: var(--tip-bg); color: var(--fg);
   font: 400 12px/1.35 system-ui, sans-serif; letter-spacing: normal; text-transform: none; text-align: left; text-shadow: none;
+  white-space: normal; overflow-wrap: break-word;
   box-shadow: 0 0 0 3px var(--bg), var(--shadow-tip);
   opacity: 0; visibility: hidden; pointer-events: none;
   transition: opacity 0.12s ease-out, visibility 0.12s;
 }
 #memTitle[data-tip] { position: relative; cursor: help; }
-#memTitle[data-tip]::after { right: auto; left: 0; }
 .whatif-on[data-tip]:hover::after, .more-on[data-tip]:hover::after, #memTitle[data-tip]:hover::after { opacity: 1; visibility: visible; transition-delay: 0.25s; }
 .whatif-max { margin-top: 0; font-size: 11px; display: flex; justify-content: space-between; }
 
@@ -459,6 +483,28 @@ button.ghost:hover { background: var(--ghost-hover); }
 .pill { border-radius: 6px; }
 .toggle-label[data-tip]::after, .whatif-on[data-tip]::after, .more-on[data-tip]::after, #memTitle[data-tip]::after { border-radius: 8px; }
 ::picker(select) { border: 1px solid var(--border); border-radius: 8px; }
-/* "What if" and "More details" sit right-aligned one under the other; the same
-   width keeps their boxes in one column. */
-.whatif-on, .more-on { box-sizing: border-box; width: 8em; justify-content: flex-start; white-space: nowrap; }
+
+/* "To read free VRAM automatically": folded away on the legend row, like "What the marks mean". */
+.legend-bar { align-items: center; }
+.legend-bar .worker-head { width: auto; margin-left: auto; }
+.legend-bar .worker-head[hidden] { display: none; }
+.worker-head:hover .legend-title { color: var(--fg-2); }
+
+/* The VRAM size field: no frame, no spin arrows. A faint hint shows while it is empty; a thin line marks it on focus. */
+#vramTotal { background: transparent; border: 0; border-radius: 0; padding: 2px 0; width: 3.2ch; min-width: 36px; appearance: textfield; -moz-appearance: textfield; font-weight: 600; }
+#vramTotal::-webkit-inner-spin-button, #vramTotal::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
+#vramTotal::placeholder { color: var(--muted); font-weight: 400; opacity: 0.55; }
+#vramTotal:focus { outline: 0; box-shadow: 0 1px 0 var(--accent); }
+.pill[hidden] { display: none; }
+/* Room before "GB". */
+#vramTotal { margin-right: 6px; caret-color: var(--fg-2); }
+#vramTotal::placeholder { opacity: 0.3; }
+/* The ordinary thin caret, in a muted text colour. */
+#vramTotal { padding: 2px; width: calc(3ch + 8px); min-width: 0; }
+/* Where the size came from ("typed by you", ...): left of the value, no frame, half-transparent. */
+#vramSrc { border: 0; padding: 0; margin-right: 6px; color: var(--muted); opacity: 0.6; }
+#vramSrc.ok, #vramSrc.warn { color: var(--muted); }
+
+/* No size of this machine's own (VRAM not detected or set): the imagined range fills the whole bar, from the left. */
+.wi-real.empty { flex-basis: 0; }
+.wi-bar:has(.wi-real.empty) .wi-proj { border-radius: 4px; }

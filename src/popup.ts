@@ -7,6 +7,8 @@ import { gradeSvg } from "../shared/breadMarks";
 import { fitGradeLegendLabel, fitGrades } from "../shared/fitGrade";
 import { memoryScale } from "./fit";
 import { THEME_KEY, applyTheme, readTheme, saveTheme, type Theme } from "./theme";
+import { browserFor, flagsPageUrl } from "./flags";
+import { getVramStore, rememberVram, savedVram, setManualVram, type VramSource } from "./vramMemory";
 
 const $ = <T extends HTMLElement = HTMLElement>(id: string) => document.getElementById(id) as T;
 const gb = (mib: number, digits = 1) => `${(mib / 1024).toFixed(digits)} GB`;
@@ -24,7 +26,6 @@ let helper: HelperGpu | null = null;
 /** RAM type and speed: read once from the helper and kept, it doesn't change. */
 let ramInfo: HelperRam | null = null;
 /** The user clicked "edit" next to the GPU size. */
-let editingVram = false;
 let windowId: number | undefined;
 
 /** Apps shown on a bar: RAM from 1 GB, VRAM from 512 MB (smaller ones stay in the grey "in use"). */
@@ -64,10 +65,36 @@ function barApps(list: HelperApp[] | null | undefined, min: number): HelperApp[]
   return (list ?? []).filter((a) => a.mib >= min && !/^llama-/i.test(a.name));
 }
 
-/** The VRAM size shown next to the GPU name: measured, typed, or from the table of known cards. */
+/** The VRAM size shown next to the GPU name: measured by the worker, or typed by the user. */
 function vramSize(mem: MemoryPicture): number | null {
   if (mem.kind !== "vram" || mem.vramUnknown) return null;
   return mem.deviceTotalMib;
+}
+
+/** The GPU's name for the store of remembered sizes: the browser's, else the worker's. */
+function cardName(): string | null {
+  return gpu?.name ?? helper?.name ?? null;
+}
+
+/** How a remembered size is named in the pill and in the note. */
+const SAVED_PILL: Record<VramSource, string> = {
+  worker: "remembered · worker",
+  browser: "remembered · browser",
+  hf: "from Hugging Face",
+  manual: "set manually",
+};
+const SAVED_NOTE: Record<VramSource, string> = {
+  worker: "remembered from the worker's measurement",
+  browser: "remembered from the browser's reading",
+  hf: "from your Hugging Face profile",
+  manual: "set manually",
+};
+
+/** Remembers the sizes a live reading gave, so they stay when that source is gone. */
+async function rememberLive(mem: MemoryPicture) {
+  if (mem.kind !== "vram") return;
+  if (helper && mem.measured) await rememberVram(cardName(), "worker", mem.deviceTotalMib);
+  if (gpu?.vramMib != null) await rememberVram(cardName(), "browser", gpu.vramMib);
 }
 
 /** The bread marks this machine can show, best first, drawn for the theme on screen. */
@@ -94,10 +121,22 @@ function parts(id: string, ...bits: (string | [string])[]) {
   );
 }
 
+/** Why the worker's reading is missing, in words the user can act on, with the action as a link (HTML; "" when it worked). */
+function helperReason(r: HelperResult | null): string {
+  if (r?.ok) return "";
+  const link = (text: string) => `<a href="${WORKERS_URL}" target="_blank" rel="noopener">${text}</a>`;
+  // Chrome refuses a host that doesn't list this extension's ID: the worker was registered before that ID was added.
+  if (r && /forbidden|not allowed/i.test(r.error)) return `The LlamaToaster worker on this machine hasn't registered this extension yet: ${link("update the worker")}.`;
+  if (!r || r.missing) return `No LlamaToaster worker is registered for this browser on this machine: ${link("install or update the worker")}.`;
+  return `Worker helper error: ${escapeHtml(r.error)}. ${link("Update the worker")}.`;
+}
+
 async function renderMemory() {
   const ram = await readRam();
   // "This machine" always shows the real one; the what-if box shows the imagined one.
-  const mem = memoryPicture(gpu, ram, { ...settings, whatIf: false }, helper);
+  const saved = savedVram(await getVramStore(), cardName());
+  const mem = memoryPicture(gpu, ram, { ...settings, whatIf: false }, helper, saved);
+  void rememberLive(mem);
   const llamaRam = ram ? Math.min(helperRes?.ok ? helperRes.reading.llamaRamMib : 0, ram.totalMib - ram.availableMib) : 0;
   renderWhatIf(mem, ram, llamaRam);
 
@@ -114,45 +153,63 @@ async function renderMemory() {
   $("gpu").title = chromeNoGpu ? "Chrome is drawing without its GPU. Restart Chrome; if it stays this way, update the GPU driver. Installing the LlamaToaster worker reads the card directly." : "";
   const vram = vramSize(mem);
   if (mem.kind === "vram" && vram != null) parts("gpu", `${name} · ${size(vram)}`);
-  else parts("gpu", mem.kind === "cpu" ? name : mem.kind === "unified" ? `${name} · shared RAM` : `${name} · VRAM size unknown`);
-  $("editVram").style.display = mem.kind === "vram" ? "" : "none";
+  else parts("gpu", mem.kind === "cpu" ? name : mem.kind === "unified" ? `${name} · shared RAM` : name);
 
-  // The size input shows only when it's needed: unknown card, a typed size, or "edit".
+  // The size input shows only when it's needed: unknown card or a size set manually.
   const totalInput = $<HTMLInputElement>("vramTotal");
-  $("vramTotalRow").style.display = mem.kind === "vram" && (mem.vramUnknown || editingVram || settings.vramOverrideMib != null) ? "" : "none";
+  const typing = mem.kind === "vram" && (mem.vramUnknown || saved?.source === "manual");
+  $("vramInput").hidden = !typing;
+  $("vramAvail").hidden = typing;
+  $("vramSrc").hidden = false;
   if (document.activeElement !== totalInput) totalInput.value = vram != null ? String(+(vram / 1024).toFixed(1)) : "";
   const src = $("vramSrc");
-  src.textContent = settings.vramOverrideMib != null ? "entered · clear to reset" : mem.measured ? "measured" : gpu?.tableVramMib != null ? "known card" : "enter it";
-  src.className = `pill${mem.vramUnknown ? " warn" : mem.measured && settings.vramOverrideMib == null ? " ok" : ""}`;
+  src.textContent = mem.measured
+    ? "measured"
+    : mem.totalFromBrowser
+      ? "read by the browser"
+      : mem.totalFromSaved
+        ? SAVED_PILL[mem.totalFromSaved]
+        : "enter";
+  src.className = `pill${mem.vramUnknown ? " warn" : mem.measured || mem.totalFromBrowser ? " ok" : ""}`;
 
   renderLegend(mem);
 
   // "Auto" says what it found.
-  const auto = memoryPicture(gpu, ram, { ...settings, whatIf: false, cpuOnly: false, unifiedOverride: null }, helper).kind;
+  const auto = memoryPicture(gpu, ram, { ...settings, whatIf: false, cpuOnly: false, unifiedOverride: null }, helper, saved).kind;
   $("kindAuto").textContent = `Auto · ${auto === "vram" ? "Dedicated VRAM" : auto === "unified" ? "Unified (shared RAM)" : "CPU only"}`;
   $<HTMLSelectElement>("kind").value = settings.cpuOnly ? "cpu" : settings.unifiedOverride == null ? "auto" : settings.unifiedOverride ? "unified" : "vram";
 
 
-  $("availLabel").textContent = mem.kind === "unified" ? "GPU can use" : mem.kind === "cpu" ? "Model memory" : "VRAM available";
-  if (mem.kind === "cpu") parts("vramAvail", "RAM only");
-  else if (mem.vramUnknown) parts("vramAvail", "n/a free of ?");
+  $("availLabel").textContent = mem.kind === "unified" ? "GPU can use" : mem.kind === "cpu" ? "Model memory" : "VRAM";
+  // CPU only: no GPU memory to describe, so the row goes (RAM has its own above).
+  $("vramRow").hidden = mem.kind === "cpu";
+  if (mem.kind === "cpu") parts("vramAvail", "");
+  else if (mem.vramUnknown) parts("vramAvail", "");
+  // Without a reading of what other apps hold, "free" would only repeat the total: show the size alone.
+  else if (mem.kind === "vram" && !mem.measured) parts("vramAvail", [size(mem.deviceTotalMib)]);
   else parts("vramAvail", [gb(mem.deviceFreeMib)], " free of ", [size(mem.deviceTotalMib)]);
   // VRAM: free vs in use. LlamaToaster's own llama.cpp counts as in use here.
-  setBar("vramBar", 0, deviceInUseMib(mem), mem.deviceTotalMib, mem.measured ? barApps(helper?.apps, APP_MIN_MIB.vram) : []);
-  $("vramBar").style.display = mem.kind === "cpu" || mem.vramUnknown ? "none" : "";
+  // With no size known the bar stays empty (all free) and has no lever (renderKeep hides it without a model).
+  if (mem.vramUnknown) setBar("vramBar", 0, 0, 1, []);
+  else setBar("vramBar", 0, deviceInUseMib(mem), mem.deviceTotalMib, mem.measured ? barApps(helper?.apps, APP_MIN_MIB.vram) : []);
+  $("vramBar").style.display = mem.kind === "cpu" ? "none" : "";
   $("legendLlama").style.display = llamaRam > 0 ? "" : "none";
+
+  // The size field's tooltip already says how to get the size: only the worker is offered, folded away
+  // on the legend row. Shown while nothing measures free VRAM.
+  const workerUp = mem.measured || !!helperRes?.ok;
+  const offerWorker = mem.kind === "vram" && !workerUp;
+  $("workerHead").hidden = !offerWorker;
+  $("workerBody").hidden = !offerWorker || $("workerHead").getAttribute("aria-expanded") !== "true";
+  if (offerWorker) {
+    $("workerBody").innerHTML = helperReason(helperRes);
+  }
 
   const note = $("memNote");
   note.className = "note";
-  const workerLink = `<a href="${WORKERS_URL}" target="_blank" rel="noopener">llamatoaster.com/workers</a>`;
-  if (mem.kind === "vram" && mem.vramUnknown) {
-    note.className = "note warn";
-    note.innerHTML = `This GPU is not in the built-in list: enter its VRAM size, or install a LlamaToaster worker on this machine to measure it (${workerLink}).`;
-  } else if (mem.measured) {
-    note.textContent = `Measured through the LlamaToaster worker (${helper?.vendor}): free = total − what every app on this GPU uses right now.`;
-  } else if (mem.kind === "vram") {
-    const err = helperRes && !helperRes.ok && !helperRes.missing ? `Worker helper error: ${escapeHtml(helperRes.error)}. ` : "";
-    note.innerHTML = `${err}A browser can't read free VRAM, so the marks count the whole card as free. To measure it, install a LlamaToaster worker on this machine: ${workerLink}`;
+  if (workerUp) {
+    // The worker may take a moment to answer: the offer above disappears and this line takes its place.
+    note.textContent = "LlamaToaster worker is installed: memory is read automatically.";
   } else if (mem.kind === "unified") {
     note.textContent = /apple/i.test(`${gpu?.vendor} ${gpu?.name}`) ? "Apple silicon: the GPU can use about 3/4 of RAM." : "The GPU shares system RAM.";
   } else note.textContent = "";
@@ -184,12 +241,14 @@ let whatIfOwn = { ram: 0, vram: 0 };
 const whatIfStopList: Record<"ram" | "vram", number[]> = { ram: [], vram: [] };
 /** The left half: every smaller step up to (and ending with) this machine's own size; empty when there is none. */
 const whatIfLowList: Record<"ram" | "vram", number[]> = { ram: [], vram: [] };
-const big = (mib: number) => (mib >= 1024 * 1024 ? `${+(mib / 1048576).toFixed(1)} TB` : size(mib));
+const big = size;
 
 /** The right half's stops: this machine's own size first, then every larger step. */
 function whatIfRight(scale: "ram" | "vram" | "unified", own: number): number[] {
   const larger = WHATIF_STOPS_GB[scale].map((g) => g * 1024).filter((s) => s > own + 256);
-  return own > 0 ? [own, ...larger] : larger;
+  if (own > 0) return [own, ...larger];
+  // Nothing known for this card: the slider starts at 1 GB, with 1 and 2 GB before the usual steps.
+  return scale === "vram" ? [1024, 2048, ...larger] : larger;
 }
 /** The left half's stops: every smaller step, then this machine's own size. */
 function whatIfLeft(scale: "ram" | "vram" | "unified", own: number): number[] {
@@ -214,13 +273,13 @@ function whatIfAt(stops: number[], t: number): number {
   return Math.min(stops[stops.length - 1], Math.max(stops[0], Math.round(v / step) * step));
 }
 const WHATIF_PULL_PX = 4;
-/** Where stop i sits along the bar: the right half, 50%..100%. */
-const whatIfPct = (i: number, n: number) => 50 + (n > 1 ? (i / (n - 1)) * 50 : 0);
+/** Where stop i sits along the bar: the right half, 50%..100%; with no size of this machine's own, the whole bar. */
+const whatIfPct = (i: number, n: number, own: number) => (own > 0 ? 50 : 0) + (n > 1 ? (i / (n - 1)) * (own > 0 ? 50 : 100) : 0);
 /** Where a value sits along the whole bar, 0..100%: up to this machine's own size the bar is
  * linear (the memory you have, 0..50%); above it the larger stops follow on a log scale. */
 function whatIfPlace(own: number, up: number[], v: number): number {
   if (own > 0 && v < own) return Math.max(0, v / own) * 50;
-  return whatIfPct(whatIfPos(up, v), up.length);
+  return whatIfPct(whatIfPos(up, v), up.length, own);
 }
 /** Left half, as the keep-free lever moves: 0.1 GB steps, a slight pull onto every whole GB and the own size. */
 const WHATIF_MIN_MIB = 1024;
@@ -279,7 +338,7 @@ function renderWhatIf(real: MemoryPicture, ram: RamReading | null, llamaRam: num
     const pct = whatIfPlace(whatIfOwn[id], stops, value);
     const lowNotches = low.slice(0, -1).map((_, i) => `<i style="left:${((low[i] / whatIfOwn[id]) * 50).toFixed(3)}%"></i>`);
     $(`whatIfNotches_${id}`).innerHTML = lowNotches
-      .concat(stops.map((_, i) => `<i${i === 0 && whatIfOwn[id] > 0 ? ' class="own"' : ""} style="left:${whatIfPct(i, stops.length).toFixed(3)}%"></i>`))
+      .concat(stops.map((_, i) => `<i${i === 0 && whatIfOwn[id] > 0 ? ' class="own"' : ""} style="left:${whatIfPct(i, stops.length, whatIfOwn[id]).toFixed(3)}%"></i>`))
       .join("");
     $(`whatIf_${id}`).querySelector<HTMLElement>(".lever")!.style.left = `${pct}%`;
     $(`whatIf_${id}`).setAttribute("aria-valuetext", big(value));
@@ -296,7 +355,6 @@ function renderWhatIf(real: MemoryPicture, ram: RamReading | null, llamaRam: num
 
 function wireWhatIf() {
   $<HTMLInputElement>("whatIfOn").addEventListener("change", (e) => void save({ whatIf: (e.target as HTMLInputElement).checked }, true));
-  $("whatIfReset").addEventListener("click", () => void save({ whatIfRamMib: null, whatIfVramMib: null }, true));
   for (const id of ["ram", "vram"] as const) {
     const track = $(`whatIf_${id}`);
     const key = id === "ram" ? "whatIfRamMib" : "whatIfVramMib";
@@ -312,8 +370,9 @@ function wireWhatIf() {
       if (f < 0.5 && own > 0) {
         value = whatIfLinear(own, f * r.width, r.width / 2);
       } else {
-        const t = f <= 0.5 ? 0 : (f - 0.5) * 2 * (stops.length - 1);
-        const pxPerStop = r.width / 2 / Math.max(1, stops.length - 1);
+        // With a size of its own the stops fill the right half; without one they fill the whole bar.
+        const t = own > 0 ? (f <= 0.5 ? 0 : (f - 0.5) * 2 * (stops.length - 1)) : f * (stops.length - 1);
+        const pxPerStop = (own > 0 ? r.width / 2 : r.width) / Math.max(1, stops.length - 1);
         const near = Math.round(t);
         value = Math.abs(t - near) * pxPerStop <= WHATIF_PULL_PX ? stops[near] : whatIfAt(stops, t);
       }
@@ -393,6 +452,10 @@ function renderKeep(id: KeepId) {
   const track = $(`${id}Keep`);
   const bar = $(`${id}Bar`);
   track.style.display = m && bar.style.display !== "none" ? "" : "none";
+  const [, , keepOff, edgeOff] = bar.children as unknown as HTMLElement[];
+  // No model (size unknown): the bar is just empty, with no kept-free part or edge left over.
+  keepOff.style.width = m ? keepOff.style.width : "0";
+  edgeOff.style.display = m ? "" : "none";
   if (!m) return;
   const keep = keepAmount(m);
   const x = stopX(m, m.mode === "current" ? "current" : m.fixed);
@@ -402,7 +465,7 @@ function renderKeep(id: KeepId) {
   const lever = track.querySelector<HTMLElement>(".lever")!;
   const val = track.querySelector<HTMLElement>(".val")!;
   lever.style.left = val.style.left = `${x * 100}%`;
-  val.textContent = m.mode === "current" ? `in use${m.estimate ? " (est.)" : ""} · ${gb(keep)}` : gb(keep);
+  val.textContent = m.mode === "current" ? m.estimate ? gb(keep) : `in use · ${gb(keep)}` : gb(keep);
   // Left of the lever when it fits there without touching the label; otherwise right of it, and never over the label.
   const lblEnd = track.querySelector<HTMLElement>(".lbl")!.offsetWidth + 8;
   const leverPx = x * track.clientWidth;
@@ -577,6 +640,16 @@ async function save(patch: Partial<Settings>, now = false) {
   await renderMemory();
 }
 
+/** Opens the browser's flags page on the WebGPU developer flag, which lets the browser report the card's memory. */
+async function openFlagsPage() {
+  const browser = browserFor(!!(navigator as Navigator & { brave?: unknown }).brave, navigator.userAgent);
+  try {
+    await chrome.tabs.create({ url: flagsPageUrl(browser), active: true });
+  } catch (err) {
+    console.warn("LlamaToaster: could not open the flags page", err);
+  }
+}
+
 async function main() {
   wireTheme();
   renderDock();
@@ -624,13 +697,31 @@ async function main() {
     const v = (e.target as HTMLSelectElement).value;
     void save({ cpuOnly: v === "cpu", unifiedOverride: v === "auto" || v === "cpu" ? null : v === "unified" });
   });
-  $("editVram").addEventListener("click", () => {
-    editingVram = !editingVram;
-    void renderMemory().then(() => editingVram && $<HTMLInputElement>("vramTotal").focus());
+  // chrome:// links can't be followed from an extension page: open them through tabs.create.
+  $("flagsTip").addEventListener("click", (e) => {
+    e.preventDefault();
+    void openFlagsPage();
+  });
+  // Clicking into the field selects the whole value, so typing replaces it.
+  const sizeField = $<HTMLInputElement>("vramTotal");
+  let selectOnMouseUp = false;
+  sizeField.addEventListener("focus", () => {
+    selectOnMouseUp = true;
+    sizeField.select();
+  });
+  // The mouse-up that ends the focusing click would otherwise drop the selection.
+  sizeField.addEventListener("mouseup", (e) => {
+    if (selectOnMouseUp) e.preventDefault();
+    selectOnMouseUp = false;
+  });
+  // At most three digits before the point: the number is clamped as it is typed.
+  $<HTMLInputElement>("vramTotal").addEventListener("input", (e) => {
+    const el = e.target as HTMLInputElement;
+    if (parseFloat(el.value) > 999) el.value = "999";
   });
   $<HTMLInputElement>("vramTotal").addEventListener("change", (e) => {
-    const v = parseFloat((e.target as HTMLInputElement).value);
-    void save({ vramOverrideMib: Number.isFinite(v) && v > 0 ? Math.round(v * 1024) : null });
+    const v = Math.min(999, parseFloat((e.target as HTMLInputElement).value));
+    void setManualVram(cardName(), Number.isFinite(v) && v > 0 ? Math.round(v * 1024) : null).then(() => renderMemory());
   });
 
   // Side panel: open it from the popup's click (it needs the user gesture,
@@ -662,8 +753,15 @@ async function main() {
     saveUi({ legendOpen: open });
   });
 
+  $("workerHead").addEventListener("click", () => {
+    const open = $("workerHead").getAttribute("aria-expanded") !== "true";
+    $("workerHead").setAttribute("aria-expanded", String(open));
+    $("workerBody").hidden = !open;
+  });
+
   chrome.storage.onChanged.addListener((changes) => {
     // Another view (popup vs panel) or a page changed a setting.
+    if (changes.vramMemory) void renderMemory();
     if (changes.settings?.newValue && !flushTimer) {
       settings = { ...settings, ...(changes.settings.newValue as Settings) };
       renderFit();
