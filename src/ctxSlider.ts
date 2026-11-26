@@ -54,6 +54,6 @@ export function ticksHtml(maxPos = CTX_SLIDER_MAX): string {
   return CTX_STOPS.map((c, i) => [c, pos[i]] as const)
     .filter(([, p]) => p <= maxPos)
     // The last two anchors sit close together: the 10M label hangs right of its tick.
-    .map(([c, p]) => `<span class="${c === CTX_MAX ? "tail" : ""}" style="left: calc(12px + (100% - 24px) * ${p / maxPos})">${ctxLabel(c)}</span>`)
+    .map(([c, p]) => `<span class="${c === CTX_MAX ? "tail" : ""}" data-ctx="${c}" style="left: calc(12px + (100% - 24px) * ${p / maxPos})">${ctxLabel(c)}</span>`)
     .join("");
 }

@@ -730,6 +730,11 @@ async function main() {
     $("ctxVal").textContent = `${ctxLabel(c)} tokens`;
     void save({ ctx: c });
   });
+  // A tick label under the slider jumps the handle straight to that size.
+  $("ticks").addEventListener("click", (e) => {
+    const c = Number((e.target as HTMLElement).closest<HTMLElement>("[data-ctx]")?.dataset.ctx);
+    if (c) void save({ ctx: c }, true);
+  });
   $<HTMLInputElement>("ctx").addEventListener("pointerdown", () => (sliderDragging = true));
   for (const ev of ["pointerup", "pointercancel"]) window.addEventListener(ev, () => { sliderDragging = false; });
   // Releasing the slider (or the popup closing) saves straight away.
