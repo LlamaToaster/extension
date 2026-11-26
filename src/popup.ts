@@ -579,10 +579,20 @@ function wireKeep(id: KeepId) {
 
 let sliderDragging = false;
 
+const MODE_NOTES: Record<Settings["mode"], string> = {
+  off: "Off — Hugging Face pages are left untouched",
+  manual: "Manual — check by clicking the toaster",
+  auto: "Auto — every GGUF page is checked as it opens",
+};
+/** Clicking the knob turns it one stop: Off → Manual → Auto → Off. */
+const NEXT_MODE: Record<Settings["mode"], Settings["mode"]> = { off: "manual", manual: "auto", auto: "off" };
+
 function renderFit() {
   const lever = $("lever");
   lever.dataset.mode = settings.mode;
-  $("leverSlot").setAttribute("aria-checked", String(settings.mode === "auto"));
+  for (const el of lever.querySelectorAll<HTMLElement>(".toggle-label")) el.setAttribute("aria-checked", String(el.dataset.mode === settings.mode));
+  $("fit").classList.toggle("is-off", settings.mode === "off");
+  $("modeNote").textContent = MODE_NOTES[settings.mode];
 
   const slider = $<HTMLInputElement>("ctx");
   slider.max = String(CTX_SLIDER_MAX);
@@ -706,8 +716,8 @@ async function main() {
   setHtml($("ticks"), ticksHtml());
   wireWhatIf();
 
-  // Manual / Auto: a wall toggle switch. The switch flips it; each word picks its side.
-  $("leverSlot").addEventListener("click", () => void save({ mode: settings.mode === "auto" ? "manual" : "auto" }, true));
+  // Off / Manual / Auto: a rotary knob. The knob turns one stop; each word picks its position.
+  $("leverSlot").addEventListener("click", () => void save({ mode: NEXT_MODE[settings.mode] }, true));
   for (const el of document.querySelectorAll<HTMLButtonElement>(".toggle-label")) {
     el.addEventListener("click", () => {
       if (el.dataset.mode !== settings.mode) void save({ mode: el.dataset.mode as Settings["mode"] }, true);

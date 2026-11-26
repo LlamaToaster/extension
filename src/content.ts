@@ -593,6 +593,12 @@ window.addEventListener("pageshow", (e) => {
 });
 
 function scan() {
+  // Off: no toaster, no marks, nothing read; whatever was on the page goes.
+  if (settings.mode === "off") {
+    teardown();
+    document.documentElement.classList.remove("lt-on");
+    return;
+  }
   const repo = repoFromPath();
   if (page && page.repo !== repo) teardown();
   const buttons = repo ? findChipButtons() : [];
@@ -662,7 +668,13 @@ async function init() {
   gpu = await getGpu();
   resolveSaved(await getVramStore());
   chrome.storage.onChanged.addListener((changes) => {
+    const wasOff = settings.mode === "off";
     if (changes.settings) settings = { ...settings, ...(changes.settings.newValue as Settings) };
+    // Turned off or back on with this page open.
+    if (wasOff !== (settings.mode === "off")) {
+      scan();
+      if (wasOff) void lookUpHfHardware().catch(() => undefined);
+    }
     if (changes.gpu) {
       gpu = changes.gpu.newValue as GpuInfo;
       void getVramStore().then(resolveSaved);
@@ -683,7 +695,7 @@ async function init() {
     });
   }).observe(document.body, { childList: true, subtree: true });
   scan();
-  void lookUpHfHardware().catch((err) => console.warn("LlamaToaster: could not read the Hugging Face hardware list", err));
+  if (settings.mode !== "off") void lookUpHfHardware().catch((err) => console.warn("LlamaToaster: could not read the Hugging Face hardware list", err));
   // Available RAM moves; keep the marks honest while the tab is in view.
   setInterval(() => {
     if (page && document.visibilityState === "visible" && page.chips.some((c) => c.facts)) void refreshRam().then(reevaluate);

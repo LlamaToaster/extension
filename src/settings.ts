@@ -28,8 +28,8 @@ export type MarginMode = "preset" | "current";
 
 export interface Settings {
   /** "auto": every GGUF page is checked as it opens. "manual": only when the
-   * toaster on the page is clicked. */
-  mode: "manual" | "auto";
+   * toaster on the page is clicked. "off": Hugging Face pages are left alone. */
+  mode: "off" | "manual" | "auto";
   ctx: number;
   marginMode: MarginMode;
   /** The fixed amount kept free on the GPU (marginMode "preset"), MiB. */

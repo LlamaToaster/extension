@@ -264,7 +264,7 @@ input[type=range]::-webkit-slider-thumb {
 input[type=range]:active::-webkit-slider-thumb { cursor: grabbing; }
 .ticks { position: relative; height: 14px; font-size: 10px; color: var(--muted); }
 .ticks span { position: absolute; top: 0; transform: translateX(-50%); white-space: nowrap; }
-.ctxval { font-family: "Barlow Condensed", sans-serif; font-weight: 600; font-size: 20px; color: var(--ctx-val); text-shadow: var(--ctx-glow); }
+.ctxval { font-family: "Barlow Condensed", sans-serif; font-weight: 600; font-size: 17px; color: var(--ctx-val); text-shadow: var(--ctx-glow); }
 
 button {
   font: inherit;
@@ -362,7 +362,39 @@ button.ghost.tiny { padding: 0 5px; font-size: 11px; line-height: 16px; vertical
    outer glow, its letters keep their colour. */
 .fit-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 4px; }
 .fit-head h2 { margin: 0; }
-.toggle { display: flex; align-items: center; gap: 7px; }
+/* Off / Manual / Auto: a rotary knob. Off sits apart on the left, reached over
+   a dashed arc; Manual and Auto are on the right, joined by a solid one. */
+.mode { position: relative; width: 132px; height: 46px; flex: none; }
+.mode-arc { position: absolute; inset: 0; overflow: visible; pointer-events: none; }
+.mode-arc path { fill: none; stroke: var(--border-strong); stroke-width: 1.5; }
+.mode-arc .dash { stroke-dasharray: 2 3; }
+.mode-dot { position: absolute; width: 5px; height: 5px; margin: -2.5px 0 0 -2.5px; border-radius: 50%; background: var(--border-strong); pointer-events: none; }
+.mode[data-mode="manual"] .mode-dot[data-mode="manual"],
+.mode[data-mode="auto"] .mode-dot[data-mode="auto"] { background: var(--accent); box-shadow: 0 0 5px rgba(255, 110, 20, 0.9); }
+.mode[data-mode="off"] .mode-dot[data-mode="off"] { background: var(--fg-2); }
+.mode-knob {
+  position: absolute; left: 40px; top: 6px; width: 34px; height: 34px; padding: 0;
+  border: 1px solid var(--key-border); border-radius: 50%;
+  background: radial-gradient(circle at 35% 30%, var(--key-hi), var(--key-mid) 45%, var(--key-lo) 80%, var(--key-low));
+  box-shadow: var(--key-shadow);
+}
+.mode-knob:hover { filter: brightness(1.12); }
+.mode-knob:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+.mode-pointer { position: absolute; inset: 0; transform: rotate(45deg); transition: transform 0.25s ease-out; }
+.mode-pointer::after {
+  content: ""; position: absolute; left: 50%; top: 3px; width: 3px; height: 34%; margin-left: -1.5px; border-radius: 2px;
+  background: var(--accent); box-shadow: 0 0 4px rgba(255, 110, 20, 0.8);
+}
+.mode[data-mode="off"] .mode-pointer { transform: rotate(-90deg); }
+.mode[data-mode="auto"] .mode-pointer { transform: rotate(125deg); }
+.mode[data-mode="off"] .mode-pointer::after { background: var(--muted); box-shadow: none; }
+.mode .toggle-label { position: absolute; white-space: nowrap; }
+.mode[data-mode="off"] .toggle-label[data-mode="off"] { color: var(--fg); }
+.mode-note { margin: 4px 0 0; font-size: 12px; color: var(--muted); }
+.ctx-row { align-items: baseline; }
+/* Off: the context value and the slot's glow go grey. */
+#fit.is-off .ctxval { color: var(--muted); text-shadow: none; }
+#fit.is-off input[type=range] { --slot-coil: linear-gradient(var(--border-strong), var(--border-strong)); --slot-bands: transparent; }
 .toggle-label {
   background: none; border: 0; padding: 2px;
   font: 600 12px/1 "Barlow Condensed", "Barlow", sans-serif; letter-spacing: 0.08em; text-transform: uppercase;
@@ -370,32 +402,13 @@ button.ghost.tiny { padding: 0 5px; font-size: 11px; line-height: 16px; vertical
   color: var(--muted);
   transition: text-shadow 0.12s ease-out;
 }
-.toggle[data-mode="manual"] .toggle-label[data-mode="manual"],
-.toggle[data-mode="auto"] .toggle-label[data-mode="auto"] {
+.mode[data-mode="manual"] .toggle-label[data-mode="manual"],
+.mode[data-mode="auto"] .toggle-label[data-mode="auto"] {
   /* On: the letters don't change at all, only an orange glow around them. */
   text-shadow: var(--key-glow);
 }
-/* The switch is just the key: one dark grey rocker that tips on its middle.
-   The chosen side is pressed in (tilted away, in shadow); the other side
-   stands up, catching the light. */
-.toggle-plate { display: flex; padding: 0; background: none; border: 0; perspective: 90px; }
-.toggle-key {
-  width: 46px; height: 24px;
-  border: 1px solid var(--key-border); border-radius: 4px;
-  background: linear-gradient(90deg, var(--key-hi), var(--key-mid) 48%, var(--key-lo) 52%, var(--key-low));
-  box-shadow: var(--key-shadow);
-  transform: rotateY(16deg);
-  transition: transform 0.12s ease-out, background 0.12s ease-out;
-}
-.toggle[data-mode="manual"] .toggle-key {
-  background: linear-gradient(270deg, var(--key-hi), var(--key-mid) 48%, var(--key-lo) 52%, var(--key-low));
-  transform: rotateY(-16deg);
-}
-.toggle-plate:hover .toggle-key { filter: brightness(1.12); }
-.toggle-plate:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
-/* What each mode does: a popup on hover (or keyboard focus) instead of a
-   line of text under the switch. Anchored to the right edge so it stays inside the popup. */
-.toggle-label { position: relative; }
+/* What each mode does: a popup on hover (or keyboard focus). Anchored to the
+   right edge so it stays inside the popup; Off's to its left edge. */
 .toggle-label[data-tip]::after {
   content: attr(data-tip);
   position: absolute; top: calc(100% + 6px); right: 0; z-index: 10;
@@ -408,6 +421,7 @@ button.ghost.tiny { padding: 0 5px; font-size: 11px; line-height: 16px; vertical
   opacity: 0; visibility: hidden; pointer-events: none;
   transition: opacity 0.12s ease-out, visibility 0.12s;
 }
+.toggle-label[data-mode="off"][data-tip]::after { right: auto; left: 0; }
 .toggle-label[data-tip]:hover::after,
 .toggle-label[data-tip]:focus-visible::after { opacity: 1; visibility: visible; transition-delay: 0.25s; }
 
