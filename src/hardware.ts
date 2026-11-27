@@ -219,7 +219,7 @@ export function whatIfPicture(real: MemoryPicture, s: Settings): MemoryPicture {
   const vram = s.whatIfVramMib ?? (real.kind === "unified" ? null : real.deviceTotalMib);
   const out: MemoryPicture = { ...real, ramTotalMib: ram, ramAvailableMib: ram, vramUnknown: false, measured: false, totalFromBrowser: false, totalFromSaved: undefined };
   if (real.kind === "unified") {
-    // Unified memory follows the imagined RAM (the GPU keeps its share, ~2/3 or 3/4 on Apple).
+    // Unified memory follows the imagined RAM (the GPU keeps its share, ~75% on Apple).
     const share = real.ramTotalMib ? real.deviceTotalMib / real.ramTotalMib : 1;
     const dev = (ram ?? 0) * share;
     return { ...out, deviceTotalMib: dev, deviceFreeMib: dev };
@@ -236,7 +236,7 @@ function realPicture(gpu: GpuInfo | null, ram: RamReading | null, s: Settings, h
     if (helper.integrated || helper.vendor === "Apple") {
       // Integrated GPUs run from the shared pool the OS gives them
       // (Windows: half of RAM; macOS: reported as all RAM, Metal may hold only
-      // its working-set limit: the helper's reading, else 2/3 or 3/4 of RAM).
+      // its working-set limit: the helper's reading, else ~75% of RAM, an estimate).
       const apple = helper.vendor === "Apple";
       const pool = helper.sharedTotalMib ?? ramTotal ?? 0;
       const total = apple ? Math.min(pool, helper.gpuLimitMib ?? estimateMetalWorkingSetMib(pool)) : pool;
@@ -259,7 +259,7 @@ function estimatedPicture(gpu: GpuInfo | null, ram: RamReading | null, s: Settin
   if (noGpu) return { kind: "cpu", deviceTotalMib: 0, deviceFreeMib: 0, ramTotalMib: ramTotal, ramAvailableMib: ramAvail, vramUnknown: false, measured: false };
   const unified = s.unifiedOverride ?? gpu.unified;
   if (unified) {
-    // Metal's working-set budget is about 2/3 of RAM (3/4 above 36 GiB); an
+    // Metal's working-set budget is estimated at 75% of RAM (Apple publishes no formula); an
     // integrated GPU elsewhere can use what the OS has available.
     const apple = /apple/i.test(gpu.vendor ?? "") || /apple/i.test(gpu.name ?? "");
     const total = ramTotal != null ? (apple ? estimateMetalWorkingSetMib(ramTotal) : ramTotal) : 0;
