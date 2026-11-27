@@ -100,8 +100,8 @@ describe("memoryPicture: Apple silicon's Metal limit", () => {
   const mac: GpuInfo = { name: "Apple M2 Pro", vendor: "apple", architecture: null, unified: true, noGpu: false, vramMib: null, detectedAt: 0 };
   const helper = (extra: Record<string, unknown> = {}) =>
     ({ name: "Apple M2 Pro", vendor: "Apple", vendorId: 0x106b, deviceId: 0, integrated: true, dedicatedTotalMib: 0, sharedTotalMib: 32768, dedicatedUsedMib: null, sharedUsedMib: 8000, ...extra }) as never;
-  it("without a helper: 2/3 of RAM up to 36 GiB, 3/4 above", () => {
-    expect(memoryPicture(mac, { totalMib: 32768, availableMib: 30000 }, DEFAULT_SETTINGS).deviceTotalMib).toBe(Math.round((32768 * 2) / 3));
+  it("without a helper: an estimate of 75% of RAM", () => {
+    expect(memoryPicture(mac, { totalMib: 32768, availableMib: 30000 }, DEFAULT_SETTINGS).deviceTotalMib).toBe(24576);
     expect(memoryPicture(mac, { totalMib: 65536, availableMib: 60000 }, DEFAULT_SETTINGS).deviceTotalMib).toBe(49152);
   });
   it("the helper's reading wins, capped at the pool", () => {
@@ -110,6 +110,6 @@ describe("memoryPicture: Apple silicon's Metal limit", () => {
     expect(memoryPicture(mac, ram, DEFAULT_SETTINGS, helper({ gpuLimitMib: 99999 })).deviceTotalMib).toBe(32768);
   });
   it("a helper without the field (older worker) falls back to the estimate", () => {
-    expect(memoryPicture(mac, { totalMib: 32768, availableMib: 30000 }, DEFAULT_SETTINGS, helper()).deviceTotalMib).toBe(Math.round((32768 * 2) / 3));
+    expect(memoryPicture(mac, { totalMib: 32768, availableMib: 30000 }, DEFAULT_SETTINGS, helper()).deviceTotalMib).toBe(24576);
   });
 });
