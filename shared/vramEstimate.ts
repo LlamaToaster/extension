@@ -831,6 +831,9 @@ export interface DualPoolFit {
   unifiedPool: boolean;
   fits: boolean | null;
   confidence: "good" | "rough" | "unknown";
+  // Unified pool only: the GPU-resident part against the GPU's own budget
+  // (Metal's working-set limit), when one was read.
+  gpuBudget?: PoolFit;
 }
 
 function dualPoolConfidence(input: DualPoolInput): "good" | "rough" | "unknown" {
@@ -942,7 +945,25 @@ export function computeDualPoolFit(input: DualPoolInput): DualPoolFit {
       freeMib,
       fits: freeMib == null ? null : neededMib <= freeMib,
     };
-    return { gpu: fit, cpu: fit, unifiedPool: true, fits: fit.fits, confidence };
+    // Metal lets the GPU hold only part of the pool (shared/metalBudget.ts;
+    // vram is that budget on a Mac). What sits on the CPU is outside it, so
+    // only the GPU-resident weights + KV count against it. Where vram is the
+    // whole pool (an iGPU with no such cap) this never binds: it is at most
+    // the whole need checked above.
+    let gpuBudget: PoolFit | undefined;
+    let fits = fit.fits;
+    if (input.vram.freeMib != null) {
+      const gpuNeeded = gpuWeightsMib + gpuKvMib + VRAM_ESTIMATE_FIXED_OVERHEAD_MIB;
+      gpuBudget = {
+        weightsMib: gpuWeightsMib,
+        kvMib: gpuKvMib,
+        neededMib: gpuNeeded,
+        freeMib: input.vram.freeMib,
+        fits: gpuNeeded <= input.vram.freeMib,
+      };
+      fits = gpuBudget.fits === false || fit.fits === false ? false : fit.fits;
+    }
+    return { gpu: fit, cpu: fit, unifiedPool: true, fits, confidence, ...(gpuBudget ? { gpuBudget } : {}) };
   }
 
   // Split pool (discrete GPU). All comparisons use FREE, not total, mib --
