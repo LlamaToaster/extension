@@ -381,6 +381,12 @@ function modelFacts(p: PageState): ModelFacts | null {
 
 /** Red: nothing kept free, the whole memory is used. Yellow: what the fit calculation uses is only partly free right now. Green: all of it is free. */
 function renderMarginNotice(p: PageState, info: ModelInfo) {
+  // Before the first check the memory has not been read: with nothing known every
+  // test below passes, and the notice would say "all free" without knowing.
+  if (!ram || !gpu) {
+    info.warn.hidden = true;
+    return;
+  }
   const mem = memNow();
   const b = deviceBudget(mem, settings, p.inUseAtStartMib, p.ramInUseAtStartMib);
   const slack = 64; // MiB: readings jitter
