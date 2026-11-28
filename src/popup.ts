@@ -580,9 +580,9 @@ function wireKeep(id: KeepId) {
 let sliderDragging = false;
 
 const MODE_NOTES: Record<Settings["mode"], string> = {
-  off: "Off — Hugging Face pages are left untouched",
-  manual: "Manual — check by clicking the toaster",
-  auto: "Auto — every GGUF page is checked as it opens",
+  off: "Hugging Face pages are left untouched",
+  manual: "Check by clicking the toaster",
+  auto: "Every GGUF page is checked as it opens",
 };
 /** Clicking the knob turns it one stop: Off → Manual → Auto → Off. */
 const NEXT_MODE: Record<Settings["mode"], Settings["mode"]> = { off: "manual", manual: "auto", auto: "off" };
