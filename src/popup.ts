@@ -212,7 +212,7 @@ async function renderMemory() {
     // The worker may take a moment to answer: the offer above disappears and this line takes its place.
     note.textContent = "LlamaToaster worker is installed: memory is read automatically.";
   } else if (mem.kind === "unified") {
-    note.textContent = /apple/i.test(`${gpu?.vendor} ${gpu?.name}`) ? "Apple silicon: the GPU can use about 75% of RAM. This is an estimate (Apple publishes no formula); with the LlamaToaster helper it is read from the Mac." : "The GPU shares system RAM.";
+    note.textContent = /apple/i.test(`${gpu?.vendor} ${gpu?.name}`) ? "Apple silicon: the GPU can use roughly 70-80% of RAM. This is an estimate (Apple publishes no formula); with the LlamaToaster worker it is read from the Mac." : "The GPU shares system RAM.";
   } else note.textContent = "";
 
   keepModels.ram = ram

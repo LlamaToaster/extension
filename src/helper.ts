@@ -17,9 +17,11 @@ export interface HelperGpu {
   sharedTotalMib: number | null;
   dedicatedUsedMib: number | null;
   sharedUsedMib: number | null;
-  /** macOS: how much of the unified pool Metal lets the GPU hold (iogpu.wired_limit_mb when set, else an estimate). */
+  /** macOS: how much of the unified pool Metal lets the GPU hold (iogpu.wired_limit_mb when set, else null). */
   gpuLimitMib?: number | null;
   gpuLimitSource?: "sysctl" | "estimate";
+  /** macOS: `sw_vers -productVersion`, for the estimate when gpuLimitMib is null. */
+  macosVersion?: string | null;
   /** What this machine's llama.cpp processes (LlamaToaster's own) hold on this GPU. */
   llamaDedicatedMib?: number;
   llamaSharedMib?: number;
