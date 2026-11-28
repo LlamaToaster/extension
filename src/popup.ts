@@ -601,6 +601,7 @@ function renderFit() {
   setFill(slider);
   $("ctxVal").textContent = `${ctxLabel(settings.ctx)} tokens`;
   $<HTMLInputElement>("moreDetails").checked = settings.moreDetails;
+  $<HTMLInputElement>("hideNotices").checked = settings.hideNotices;
 }
 
 /** How far along the slot the heating element glows (to the handle's centre). */
@@ -740,6 +741,7 @@ async function main() {
   // Releasing the slider (or the popup closing) saves straight away.
   $<HTMLInputElement>("ctx").addEventListener("change", () => void save({}, true));
   $<HTMLInputElement>("moreDetails").addEventListener("change", (e) => void save({ moreDetails: (e.target as HTMLInputElement).checked }, true));
+  $<HTMLInputElement>("hideNotices").addEventListener("change", (e) => void save({ hideNotices: (e.target as HTMLInputElement).checked }, true));
   window.addEventListener("pagehide", () => {
     if (flushTimer) void flush();
   });

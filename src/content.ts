@@ -279,6 +279,8 @@ function installBar(p: PageState) {
   // The model line and slider go right under the heading row.
   const anchor = where.head ?? bar.root;
   if (bar.info.root.previousElementSibling !== anchor) anchor.after(bar.info.root);
+  // The memory notice goes under the list of quants, at the end of the box.
+  if (bar.info.warn.parentElement !== where.box) where.box.append(bar.info.warn);
   updateBar();
 }
 
@@ -330,7 +332,7 @@ function buildInfo(): ModelInfo {
   const slider = Object.assign(document.createElement("input"), { type: "range", min: "0", step: "1", className: "lt-range" });
   slider.setAttribute("aria-label", "Context size for the fit check");
   const ticks = Object.assign(document.createElement("div"), { className: "lt-ticks" });
-  root.append(facts, warn, slider, ticks, row); // "Context  N tokens" reads under the scale
+  root.append(facts, slider, ticks, row); // "Context  N tokens" reads under the scale
   const info: ModelInfo = { root, facts, warn, slider, value, ticks, more, maxCtx: null };
   // The popup's checkbox: the same setting, and the marks' hover text follows it at once.
   more.addEventListener("change", () => {
@@ -379,11 +381,11 @@ function modelFacts(p: PageState): ModelFacts | null {
   return p.chips.find((c) => c.facts)?.facts ?? null;
 }
 
-/** Red: nothing kept free, the whole memory is used. Yellow: what the fit calculation uses is only partly free right now. Green: all of it is free. */
+/** Red: nothing kept free, the whole memory is used. Yellow: what the fit calculation uses is only partly free right now, or the free VRAM cannot be read. Green: all of it is free. */
 function renderMarginNotice(p: PageState, info: ModelInfo) {
   // Before the first check the memory has not been read: with nothing known every
   // test below passes, and the notice would say "all free" without knowing.
-  if (!ram || !gpu) {
+  if (settings.hideNotices || !ram || !gpu) {
     info.warn.hidden = true;
     return;
   }
@@ -400,6 +402,8 @@ function renderMarginNotice(p: PageState, info: ModelInfo) {
     if (settings.ramMarginMode === "preset" && settings.ramMarginMib <= 0) noMargin.push("RAM");
     else if (mem.ramAvailableMib != null && b.ramFreeMib - b.ramMarginMib > mem.ramAvailableMib + slack) over = true;
   }
+  // A card with no worker reading its free VRAM: the whole card is counted as free.
+  const vramBlind = mem.kind === "vram" && !mem.measured && !settings.cpuOnly;
   // Unified memory is one pool: just "memory". Otherwise name what has no margin ("RAM/VRAM").
   const what = mem.kind === "unified" ? "memory" : ["RAM", "VRAM"].filter((x) => noMargin.includes(x)).join("/");
   const w = info.warn;
@@ -419,6 +423,11 @@ function renderMarginNotice(p: PageState, info: ModelInfo) {
     icon = HF_ICON_WARN;
     text = "Only part of the memory used for the fit calculation is free right now. A model marked as fitting may still fail to load.";
     hint = "Close other apps, or raise the margin in the LlamaToaster extension.";
+  } else if (vramBlind) {
+    level = "lt-yellow";
+    icon = HF_ICON_WARN;
+    text = "LlamaToaster can't read the free VRAM, so it counts the whole card as free. A model marked as fitting may still fail to load.";
+    hint = "Install the LlamaToaster worker to read free VRAM.";
   } else {
     level = "lt-green";
     icon = HF_ICON_CHECK;
@@ -441,6 +450,7 @@ function renderInfo(p: PageState) {
   const info = p.bar?.info;
   if (!info) return;
   info.root.classList.toggle("lt-dark", pageIsDark());
+  info.warn.classList.toggle("lt-dark", pageIsDark());
   info.more.checked = settings.moreDetails;
   renderMarginNotice(p, info);
   const f = modelFacts(p);
@@ -622,6 +632,7 @@ function teardown() {
   }
   page.bar?.root.remove();
   page.bar?.info.root.remove();
+  page.bar?.info.warn.remove();
   page.bar?.head?.classList.remove("lt-hw-head");
   page = null;
   document.documentElement.classList.remove("lt-on");
@@ -685,7 +696,7 @@ function scan() {
   page.chips = page.chips.filter((c) => c.button.isConnected);
   for (const c of page.chips) if (c.state === "done" || c.state === "error") renderChip(c);
   // Hugging Face re-renders can drop the toaster: put it back.
-  if (!page.bar?.root.isConnected || !page.bar.info.root.isConnected || (page.bar.head && !page.bar.head.classList.contains("lt-hw-head"))) installBar(page);
+  if (!page.bar?.root.isConnected || !page.bar.info.root.isConnected || !page.bar.info.warn.isConnected || (page.bar.head && !page.bar.head.classList.contains("lt-hw-head"))) installBar(page);
   // Drafts get their badge straight away: one file list, no header read.
   if (added) {
     const p = page;
