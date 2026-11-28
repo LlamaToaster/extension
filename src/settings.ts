@@ -51,6 +51,8 @@ export interface Settings {
   whatIfVramMib: number | null;
   /** Hover text on a quant's mark: false = the one-line headline, true = every figure of the fit under it. */
   moreDetails: boolean;
+  /** Hide the memory notices under the list of quants on Hugging Face pages. */
+  hideNotices: boolean;
 }
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -68,6 +70,7 @@ export const DEFAULT_SETTINGS: Settings = {
   whatIfRamMib: null,
   whatIfVramMib: null,
   moreDetails: false,
+  hideNotices: false,
 };
 
 /** What-if slider stops, GB (roughly log-spaced). Each slider also gets a
