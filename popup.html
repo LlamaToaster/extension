@@ -31,16 +31,16 @@
           <i class="mode-dot" data-mode="off" style="left:28px;top:21px"></i>
           <i class="mode-dot" data-mode="manual" style="left:63.85px;top:6.15px"></i>
           <i class="mode-dot" data-mode="auto" style="left:66.2px;top:33.05px"></i>
-          <button type="button" class="toggle-label" data-mode="off" role="radio" aria-checked="false" style="left:0;top:13px" data-tip="LlamaToaster leaves Hugging Face pages alone: no toaster, no marks, nothing is read.">Off</button>
+          <button type="button" class="toggle-label" data-mode="off" role="radio" aria-checked="false" style="left:-4px;top:11.5px" data-tip="LlamaToaster leaves Hugging Face pages alone: no toaster, no marks, nothing is read.">Off</button>
           <button type="button" class="mode-knob" id="leverSlot" aria-label="Turn the knob to the next mode" title="Turn to the next mode"><span class="mode-pointer"></span></button>
           <button type="button" class="toggle-label" data-mode="manual" role="radio" aria-checked="false" style="left:74px;top:0" data-tip="Click the toaster on a Hugging Face GGUF page to check its quants.">Manual</button>
           <button type="button" class="toggle-label" data-mode="auto" role="radio" aria-checked="false" style="left:74px;top:25px" data-tip="Every GGUF page on Hugging Face is checked as it opens.">Auto</button>
         </div>
+        <p class="mode-note" id="modeNote"></p>
       </div>
       <div class="row ctx-row"><span class="k">Context</span><span class="ctxval" id="ctxVal">4k</span></div>
       <input type="range" id="ctx" min="0" max="9" step="1" aria-label="Context size" />
       <div class="ticks" id="ticks"></div>
-      <p class="mode-note" id="modeNote"></p>
       <label class="more-on" data-tip="On the Hugging Face page, show more details about each file when you hover its mark"><input type="checkbox" id="moreDetails" /> More details</label>
     </section>
 

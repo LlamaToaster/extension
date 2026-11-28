@@ -18,7 +18,7 @@ import { CTX_SLIDER_MAX, ctxFromSlider, ctxLabel, getGpu, getSettings, setSettin
 import { mapChipFiles } from "./fileMap";
 import { HF_AUX_LABELS, type AuxTag } from "../shared/hfAuxFiles";
 import { gradeSvg } from "../shared/breadMarks";
-import { setHtml } from "./trustedHtml";
+import { escapeHtml, setHtml } from "./trustedHtml";
 
 /** Hugging Face's dark theme puts a "dark" class on <html>. */
 function pageIsDark(): boolean {
@@ -118,6 +118,8 @@ interface ToasterBar {
 interface ModelInfo {
   root: HTMLDivElement;
   facts: HTMLDivElement;
+  /** Shown while no safety margin is kept free in VRAM or RAM. */
+  warn: HTMLDivElement;
   slider: HTMLInputElement;
   value: HTMLSpanElement;
   ticks: HTMLDivElement;
@@ -313,6 +315,7 @@ function updateBar() {
 function buildInfo(): ModelInfo {
   const root = Object.assign(document.createElement("div"), { className: "lt-info" });
   const facts = Object.assign(document.createElement("div"), { className: "lt-info-facts" });
+  const warn = Object.assign(document.createElement("div"), { className: "lt-info-warn", hidden: true });
   const row = Object.assign(document.createElement("div"), { className: "lt-info-ctx" });
   const label = Object.assign(document.createElement("span"), { className: "lt-info-k", textContent: "Context:" });
   const value = Object.assign(document.createElement("span"), { className: "lt-info-v" });
@@ -327,8 +330,8 @@ function buildInfo(): ModelInfo {
   const slider = Object.assign(document.createElement("input"), { type: "range", min: "0", step: "1", className: "lt-range" });
   slider.setAttribute("aria-label", "Context size for the fit check");
   const ticks = Object.assign(document.createElement("div"), { className: "lt-ticks" });
-  root.append(facts, slider, ticks, row); // "Context  N tokens" reads under the scale
-  const info: ModelInfo = { root, facts, slider, value, ticks, more, maxCtx: null };
+  root.append(facts, warn, slider, ticks, row); // "Context  N tokens" reads under the scale
+  const info: ModelInfo = { root, facts, warn, slider, value, ticks, more, maxCtx: null };
   // The popup's checkbox: the same setting, and the marks' hover text follows it at once.
   more.addEventListener("change", () => {
     settings = { ...settings, moreDetails: more.checked };
@@ -376,11 +379,58 @@ function modelFacts(p: PageState): ModelFacts | null {
   return p.chips.find((c) => c.facts)?.facts ?? null;
 }
 
+/** Red: nothing kept free, the whole memory is used. Yellow: what the model may use is more than is free right now. Green: it is within what is free. */
+function renderMarginNotice(p: PageState, info: ModelInfo) {
+  const mem = memNow();
+  const b = deviceBudget(mem, settings, p.inUseAtStartMib, p.ramInUseAtStartMib);
+  const slack = 64; // MiB: readings jitter
+  const noMargin: string[] = [];
+  const over: string[] = [];
+  if (mem.kind !== "cpu" && !settings.cpuOnly) {
+    if (settings.marginMode === "preset" && settings.marginMib <= 0) noMargin.push("VRAM");
+    else if (b.freeMib - b.marginMib > mem.deviceFreeMib + slack) over.push("VRAM");
+  }
+  if (b.ramFreeMib != null) {
+    if (settings.ramMarginMode === "preset" && settings.ramMarginMib <= 0) noMargin.push("RAM");
+    else if (mem.ramAvailableMib != null && b.ramFreeMib - b.ramMarginMib > mem.ramAvailableMib + slack) over.push("RAM");
+  }
+  const w = info.warn;
+  w.hidden = false;
+  w.classList.remove("lt-red", "lt-yellow", "lt-green");
+  let level: "lt-red" | "lt-yellow" | "lt-green";
+  let icon: string;
+  let text: string;
+  if (noMargin.length) {
+    level = "lt-red";
+    icon = HF_ICON_CROSS;
+    text = `No safety margin in ${noMargin.join(" and ")}: all of it is used, so a model marked as fitting may still fail to load or run out of memory. Keep some memory free in the LlamaToaster popup.`;
+  } else if (over.length) {
+    level = "lt-yellow";
+    icon = HF_ICON_WARN;
+    text = `The ${over.join(" and ")} the fit may use is more than is free right now (other apps hold it). A model marked as fitting may still fail; close other apps or keep more free.`;
+  } else {
+    level = "lt-green";
+    icon = HF_ICON_CHECK;
+    text = "The memory the fit may use is within what is free right now.";
+  }
+  w.classList.add(level);
+  setHtml(w, `<span class="lt-warn-ico">${icon}</span><span>${escapeHtml(text)}</span>`); // icons are constants
+}
+
+// Hugging Face's own hardware-compatibility icons (IconHardwareCross chunk): chip body in currentColor, glyph in white.
+const HF_CHIP = '<path fill-rule="evenodd" clip-rule="evenodd" d="M26.16 19.7H28a.92.92 0 0 0 0-1.85h-1.84v-3.7H28a.92.92 0 0 0 0-1.84h-1.84V7.69a1.85 1.85 0 0 0-1.85-1.85H19.7V4a.92.92 0 0 0-1.84 0v1.84h-3.7V4a.92.92 0 1 0-1.84 0v1.84H7.69A1.85 1.85 0 0 0 5.84 7.7v4.62H4a.92.92 0 1 0 0 1.84h1.84v3.7H4a.92.92 0 0 0 0 1.84h1.84v4.62a1.85 1.85 0 0 0 1.85 1.85h4.62V28a.92.92 0 1 0 1.84 0v-1.84h3.7V28a.92.92 0 1 0 1.84 0v-1.84h4.62a1.85 1.85 0 0 0 1.85-1.85V19.7Z" fill="currentColor"></path>';
+const hfIcon = (glyph: string) => `<svg aria-hidden="true" focusable="false" role="img" width="1em" height="1em" viewBox="0 0 32 32">${HF_CHIP}${glyph}</svg>`;
+const HF_ICON_CHECK = hfIcon('<path d="m10.39 14.95 4.15 4.15 6.97-6.98" stroke="#fff" stroke-width="2.37" fill="none"></path>');
+const HF_ICON_CROSS = hfIcon('<path fill-rule="evenodd" clip-rule="evenodd" d="m16 17.68 3.66 3.65 1.67-1.67L17.68 16l3.66-3.66-1.68-1.68L16 14.33l-3.66-3.67-1.68 1.68L14.33 16l-3.66 3.66 1.67 1.67L16 17.68Z" fill="#fff"></path>');
+// HF's yellow "recommended / unsure" chip (question mark).
+const HF_ICON_WARN = hfIcon('<path d="M14.59 18.28c-.08-.5-.05-.94.09-1.33.13-.4.31-.76.54-1.07.25-.33.5-.63.75-.9.26-.28.47-.55.64-.8.18-.27.28-.54.28-.8 0-.38-.12-.67-.35-.86-.22-.2-.51-.3-.88-.3-.34 0-.64.09-.9.24-.26.16-.51.36-.76.6l-1.48-1.34c.43-.5.94-.9 1.54-1.2.6-.31 1.24-.46 1.95-.46.66 0 1.24.1 1.75.32.52.22.94.56 1.24 1.03.3.46.46 1.05.46 1.77 0 .45-.1.85-.28 1.2-.18.34-.4.66-.67.95l-.79.87c-.25.28-.46.6-.62.94-.15.32-.2.7-.16 1.14h-2.35Zm1.16 4.44c-.46 0-.84-.16-1.15-.48a1.7 1.7 0 0 1-.45-1.2c0-.49.15-.89.45-1.2.3-.33.7-.5 1.15-.5.47 0 .85.17 1.15.5.32.31.48.71.48 1.2 0 .47-.16.88-.48 1.2-.3.32-.68.48-1.15.48Z" fill="#fff"></path>');
+
 function renderInfo(p: PageState) {
   const info = p.bar?.info;
   if (!info) return;
   info.root.classList.toggle("lt-dark", pageIsDark());
   info.more.checked = settings.moreDetails;
+  renderMarginNotice(p, info);
   const f = modelFacts(p);
   if (f) {
     // Headers cached by an older version have no expert count: the tensor list still tells MoE apart.

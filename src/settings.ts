@@ -57,11 +57,10 @@ export const DEFAULT_SETTINGS: Settings = {
   mode: "manual",
   ctx: 4096,
   marginMode: "preset",
-  marginMib: 1024,
-  // "In use now" for RAM is what the check did before RAM had a setting:
-  // the model gets what the OS reports as available.
-  ramMarginMode: "current",
-  ramMarginMib: 4096,
+  // Use all the memory by default; the page warns while nothing is kept free.
+  marginMib: 0,
+  ramMarginMode: "preset",
+  ramMarginMib: 0,
   unifiedOverride: null,
   cpuOnly: false,
   sidePanel: false,
