@@ -1,6 +1,6 @@
 import type { HelperGpu } from "./helper";
 import { isFastUnified } from "../shared/fitGrade";
-import { estimateMetalWorkingSetMib } from "../shared/metalBudget";
+import { estimateMetalWorkingSetMib, macosMajor } from "../shared/metalBudget";
 // What a browser can learn about the machine's memory.
 //
 // RAM: chrome.system.memory gives the real total and available figures.
@@ -219,7 +219,7 @@ export function whatIfPicture(real: MemoryPicture, s: Settings): MemoryPicture {
   const vram = s.whatIfVramMib ?? (real.kind === "unified" ? null : real.deviceTotalMib);
   const out: MemoryPicture = { ...real, ramTotalMib: ram, ramAvailableMib: ram, vramUnknown: false, measured: false, totalFromBrowser: false, totalFromSaved: undefined };
   if (real.kind === "unified") {
-    // Unified memory follows the imagined RAM (the GPU keeps its share, ~75% on Apple).
+    // Unified memory follows the imagined RAM (the GPU keeps its share, 67-81% on Apple).
     const share = real.ramTotalMib ? real.deviceTotalMib / real.ramTotalMib : 1;
     const dev = (ram ?? 0) * share;
     return { ...out, deviceTotalMib: dev, deviceFreeMib: dev };
@@ -236,10 +236,10 @@ function realPicture(gpu: GpuInfo | null, ram: RamReading | null, s: Settings, h
     if (helper.integrated || helper.vendor === "Apple") {
       // Integrated GPUs run from the shared pool the OS gives them
       // (Windows: half of RAM; macOS: reported as all RAM, Metal may hold only
-      // its working-set limit: the helper's reading, else ~75% of RAM, an estimate).
+      // its working-set limit: the helper's reading, else an estimate from RAM size and macOS version).
       const apple = helper.vendor === "Apple";
       const pool = helper.sharedTotalMib ?? ramTotal ?? 0;
-      const total = apple ? Math.min(pool, helper.gpuLimitMib ?? estimateMetalWorkingSetMib(pool)) : pool;
+      const total = apple ? Math.min(pool, helper.gpuLimitMib ?? estimateMetalWorkingSetMib(pool, macosMajor(helper.macosVersion))) : pool;
       const used = helper.sharedUsedMib ?? 0;
       const free = Math.max(0, Math.min(total, pool - used, ramAvail ?? Infinity));
       return { kind: "unified", deviceTotalMib: total, deviceFreeMib: free, ...base, fastUnified: apple || isFastUnified([helper.name]) };
@@ -259,7 +259,8 @@ function estimatedPicture(gpu: GpuInfo | null, ram: RamReading | null, s: Settin
   if (noGpu) return { kind: "cpu", deviceTotalMib: 0, deviceFreeMib: 0, ramTotalMib: ramTotal, ramAvailableMib: ramAvail, vramUnknown: false, measured: false };
   const unified = s.unifiedOverride ?? gpu.unified;
   if (unified) {
-    // Metal's working-set budget is estimated at 75% of RAM (Apple publishes no formula); an
+    // Metal's working-set budget is estimated from RAM size (Apple publishes no formula; the browser cannot see
+    // the macOS version, so the cautious older rule applies); an
     // integrated GPU elsewhere can use what the OS has available.
     const apple = /apple/i.test(gpu.vendor ?? "") || /apple/i.test(gpu.name ?? "");
     const total = ramTotal != null ? (apple ? estimateMetalWorkingSetMib(ramTotal) : ramTotal) : 0;
