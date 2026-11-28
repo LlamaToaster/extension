@@ -97,6 +97,8 @@ interface PageState {
   /** A check was started here (toaster clicked, or auto mode): chips that
    * appear later ("show more") are checked too. */
   armed: boolean;
+  /** The restore from cached headers was tried for this page. */
+  restoreTried?: boolean;
   /** VRAM in use when the check started, for "keep free: in use now". */
   inUseAtStartMib: number | null;
   /** RAM in use when the check started, for the RAM "keep free: in use now". */
@@ -583,16 +585,17 @@ async function runChip(p: PageState, c: Chip, force: boolean, cacheOnly = false)
   }
 }
 
-async function calculate() {
+/** `cacheOnly`: show what earlier checks already read (cached headers), download nothing more. */
+async function calculate(cacheOnly = false) {
   const p = page;
   if (!p || p.running) return;
-  p.armed = true;
+  if (!cacheOnly) p.armed = true;
   p.running = true;
   const queue = p.chips.filter((c) => !c.facts && c.state !== "skipped");
   // Checking again with every header known keeps the marks up meanwhile.
   if (queue.length) p.ready = false;
   for (const c of queue) c.state = "pending";
-  setSpinning(true);
+  if (!cacheOnly) setSpinning(true);
   updateBar();
   try {
     await Promise.all([ensureGpu(), refreshRam()]);
@@ -605,7 +608,9 @@ async function calculate() {
     const workers = Array.from({ length: 2 }, async () => {
       for (let c = queue.shift(); c; c = queue.shift()) {
         if (page !== p) return;
-        await runChip(p, c, false);
+        await runChip(p, c, false, cacheOnly);
+        // Not in the cache: left alone until the toaster is clicked.
+        if (cacheOnly && !c.facts && c.state === "pending") c.state = "idle";
         updateBar();
       }
     });
@@ -613,19 +618,36 @@ async function calculate() {
   } catch (err) {
     for (const c of p.chips) {
       if (c.facts) continue;
+      if (cacheOnly) {
+        c.state = "idle";
+        continue;
+      }
       c.state = "error";
       c.error = `Could not list this repo's files: ${err instanceof Error ? err.message : String(err)}`;
     }
   } finally {
     p.running = false;
     if (page === p) {
-      setSpinning(false);
+      if (!cacheOnly) setSpinning(false);
+      // A restore that found earlier results counts as a check done.
+      if (cacheOnly && p.chips.some((c) => c.facts)) p.armed = true;
       p.ready = true;
       reevaluate();
       // Chips that appeared while we were reading ("show more", re-renders).
-      if (p.chips.some((c) => c.state === "idle")) void calculate();
+      if (!cacheOnly && p.chips.some((c) => c.state === "idle")) void calculate();
     }
   }
+}
+
+/** After a reload in manual mode: if this repo was checked before, show those results again from the cache. */
+async function restoreFromCache(p: PageState) {
+  try {
+    if (!(await ask<boolean>({ type: "hasCached", repo: p.repo }))) return;
+  } catch {
+    return;
+  }
+  if (page !== p || p.armed || p.running) return;
+  void calculate(true);
 }
 
 // ---------------------------------------------------------------- lifecycle
@@ -711,7 +733,13 @@ function scan() {
     void mapChips(p).then(() => updateBar(), () => undefined);
   }
   if (added && !page.running && (page.armed || settings.mode === "auto")) void calculate();
-  else if (added) updateBar();
+  else if (added) {
+    updateBar();
+    if (!page.restoreTried && settings.mode === "manual") {
+      page.restoreTried = true;
+      void restoreFromCache(page);
+    }
+  }
 }
 
 /** On a Hugging Face page, when no reading or remembered size covers this card:
