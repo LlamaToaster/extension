@@ -89,6 +89,8 @@
 .lt-warn-ico { flex: none; font-size: 1.25em; line-height: 1; color: #dc2626; }
 .lt-yellow .lt-warn-ico { color: #eab308; }
 .lt-green .lt-warn-ico { color: #16a34a; }
+.lt-warn-text { display: flex; flex-direction: column; gap: 2px; }
+.lt-warn-hint { font-weight: 600; }
 .lt-info-ctx { display: flex; justify-content: flex-end; align-items: baseline; gap: 0.3em; margin-top: 2px; color: var(--lt-ink-2); }
 .lt-info-v { font-variant-numeric: tabular-nums; }
 /* "More details": a quiet text toggle in the page's own grey, not a native

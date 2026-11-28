@@ -379,42 +379,48 @@ function modelFacts(p: PageState): ModelFacts | null {
   return p.chips.find((c) => c.facts)?.facts ?? null;
 }
 
-/** Red: nothing kept free, the whole memory is used. Yellow: what the model may use is more than is free right now. Green: it is within what is free. */
+/** Red: nothing kept free, the whole memory is used. Yellow: what the fit calculation uses is only partly free right now. Green: all of it is free. */
 function renderMarginNotice(p: PageState, info: ModelInfo) {
   const mem = memNow();
   const b = deviceBudget(mem, settings, p.inUseAtStartMib, p.ramInUseAtStartMib);
   const slack = 64; // MiB: readings jitter
   const noMargin: string[] = [];
-  const over: string[] = [];
+  let over = false;
   if (mem.kind !== "cpu" && !settings.cpuOnly) {
     if (settings.marginMode === "preset" && settings.marginMib <= 0) noMargin.push("VRAM");
-    else if (b.freeMib - b.marginMib > mem.deviceFreeMib + slack) over.push("VRAM");
+    else if (b.freeMib - b.marginMib > mem.deviceFreeMib + slack) over = true;
   }
   if (b.ramFreeMib != null) {
     if (settings.ramMarginMode === "preset" && settings.ramMarginMib <= 0) noMargin.push("RAM");
-    else if (mem.ramAvailableMib != null && b.ramFreeMib - b.ramMarginMib > mem.ramAvailableMib + slack) over.push("RAM");
+    else if (mem.ramAvailableMib != null && b.ramFreeMib - b.ramMarginMib > mem.ramAvailableMib + slack) over = true;
   }
+  // Unified memory is one pool: just "memory". Otherwise name what has no margin ("RAM/VRAM").
+  const what = mem.kind === "unified" ? "memory" : ["RAM", "VRAM"].filter((x) => noMargin.includes(x)).join("/");
   const w = info.warn;
   w.hidden = false;
   w.classList.remove("lt-red", "lt-yellow", "lt-green");
   let level: "lt-red" | "lt-yellow" | "lt-green";
   let icon: string;
   let text: string;
+  let hint = "";
   if (noMargin.length) {
     level = "lt-red";
     icon = HF_ICON_CROSS;
-    text = `No safety margin in ${noMargin.join(" and ")}: all of it is used, so a model marked as fitting may still fail to load or run out of memory. Keep some memory free in the LlamaToaster popup.`;
-  } else if (over.length) {
+    text = `The fit calculation uses all of your ${what}: no safety margin is kept. A model marked as fitting may still fail to load.`;
+    hint = "Set a margin in the LlamaToaster extension.";
+  } else if (over) {
     level = "lt-yellow";
     icon = HF_ICON_WARN;
-    text = `The ${over.join(" and ")} the fit may use is more than is free right now (other apps hold it). A model marked as fitting may still fail; close other apps or keep more free.`;
+    text = "Only part of the memory used for the fit calculation is free right now. A model marked as fitting may still fail to load.";
+    hint = "Close other apps, or raise the margin in the LlamaToaster extension.";
   } else {
     level = "lt-green";
     icon = HF_ICON_CHECK;
-    text = "The memory the fit may use is within what is free right now.";
+    text = "The memory used for the fit calculation is free right now.";
   }
   w.classList.add(level);
-  setHtml(w, `<span class="lt-warn-ico">${icon}</span><span>${escapeHtml(text)}</span>`); // icons are constants
+  const hintHtml = hint ? `<span class="lt-warn-hint">${escapeHtml(hint)}</span>` : "";
+  setHtml(w, `<span class="lt-warn-ico">${icon}</span><span class="lt-warn-text"><span>${escapeHtml(text)}</span>${hintHtml}</span>`); // icons are constants
 }
 
 // Hugging Face's own hardware-compatibility icons (IconHardwareCross chunk): chip body in currentColor, glyph in white.
