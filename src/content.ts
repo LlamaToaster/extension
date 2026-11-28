@@ -318,6 +318,13 @@ function buildInfo(): ModelInfo {
   const root = Object.assign(document.createElement("div"), { className: "lt-info" });
   const facts = Object.assign(document.createElement("div"), { className: "lt-info-facts" });
   const warn = Object.assign(document.createElement("div"), { className: "lt-info-warn", hidden: true });
+  // "Hide" on the notice is the popup's "Hide memory notices" switch.
+  warn.addEventListener("click", (e) => {
+    if (!(e.target as Element).closest(".lt-warn-hide")) return;
+    warn.hidden = true;
+    settings = { ...settings, hideNotices: true };
+    void setSettings({ hideNotices: true }).catch((err) => console.warn("LlamaToaster: could not save the setting", err));
+  });
   const row = Object.assign(document.createElement("div"), { className: "lt-info-ctx" });
   const label = Object.assign(document.createElement("span"), { className: "lt-info-k", textContent: "Context:" });
   const value = Object.assign(document.createElement("span"), { className: "lt-info-v" });
@@ -435,7 +442,8 @@ function renderMarginNotice(p: PageState, info: ModelInfo) {
   }
   w.classList.add(level);
   const hintHtml = hint ? `<span class="lt-warn-hint">${escapeHtml(hint)}</span>` : "";
-  setHtml(w, `<span class="lt-warn-ico">${icon}</span><span class="lt-warn-text"><span>${escapeHtml(text)}</span>${hintHtml}</span>`); // icons are constants
+  const hideHtml = '<button type="button" class="lt-warn-hide" title="Hide this notice (switch it back on in the LlamaToaster popup)">Hide</button>';
+  setHtml(w, `<span class="lt-warn-ico">${icon}</span><span class="lt-warn-text"><span>${escapeHtml(text)}</span>${hintHtml}</span>${hideHtml}`); // icons are constants
 }
 
 // Hugging Face's own hardware-compatibility icons (IconHardwareCross chunk): chip body in currentColor, glyph in white.
